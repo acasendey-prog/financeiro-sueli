@@ -196,6 +196,11 @@
     if (!i) return r2(pmt * n);
     return r2(pmt * (1 - Math.pow(1 + i, -n)) / i);
   };
+  E.amortizacoesAte = function (db, ep, ate) {
+    var tot = 0;
+    (ep.amortizacoes || []).forEach(function (a) { if (a.data.slice(0, 7) <= ate) tot += a.valor; });
+    return r2(tot);
+  };
   E.emprestimo = function (db, ep) {
     var i = E.taxaImplicita(ep.principal, ep.parcela, ep.n);
     var pagas = Math.max(0, Math.min(ep.n, E.diffMes(ep.mes1, db.meta.mesRef) + 1 + (ep.antecipadas || 0)));
@@ -208,7 +213,8 @@
       nominalRestante: r2(ep.parcela * restantes),
       quitarHoje: pv, economia: r2(ep.parcela * restantes - pv),
       ultima: E.addMes(ep.mes1, ep.n - 1),
-      quitado: restantes <= 0
+      quitado: restantes <= 0,
+      amortizado: E.amortizacoesAte(db, ep, db.meta.mesRef)
     };
   };
   E.saldoDevedorSerie = function (db) {

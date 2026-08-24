@@ -470,7 +470,8 @@
     var totGeral = ms.reduce(function (a, m) { return a + carts.reduce(function (b, c) { return b + E.faturaPaga(db, m, c); }, 0); }, 0);
 
     root.innerHTML = topo('Cartões de crédito',
-      'Parcelado vem do cadastro de parcelamentos; a fatura paga vem do extrato. À vista = fatura − parcelado.') +
+      'Parcelado vem do cadastro de parcelamentos; a fatura paga vem do extrato. À vista = fatura − parcelado.',
+      '<button class="btn pri" id="novafatura">+ Lançar Fatura</button>') +
 
       '<div class="grid g-2" style="margin-bottom:14px">' +
       carts.map(function (c, i) {
@@ -505,6 +506,8 @@
         return { nome: c, cor: cores[c] || 'var(--s1)', dados: ms.map(function (m) { return E.faturaPaga(db, m, c); }) };
       }), altura: 240
     });
+
+    $('#novafatura').onclick = function () { formFatura(); };
   }
 
   /* ================================================ TELA · PARCELAMENTOS === */
@@ -608,6 +611,25 @@
     };
     ['#p-n', '#p-val', '#p-mes'].forEach(function (s) { $(s, ovl).oninput = prev; $(s, ovl).onchange = prev; });
     prev();
+  }
+
+  function formFatura() {
+    var corpo = '<div class="grid" style="grid-template-columns:1fr 1fr;gap:12px">' +
+      '<div class="fld"><label>Cartão</label><select id="f-cart">' + opts(E.cartoes(db), 'Itaú') + '</select></div>' +
+      '<div class="fld"><label>Mês de fechamento</label><select id="f-mes">' + selMeses(st.mes) + '</select></div>' +
+      '<div class="fld" style="grid-column:1/-1"><label>Valor da fatura (R$)</label><input id="f-val" inputmode="decimal" placeholder="0,00"></div>' +
+      '<div class="hint" style="grid-column:1/-1">Será lançado como pagamento (saída) no último dia do mês, na categoria do cartão.</div></div>';
+    var ovl = modal('Lançar fatura de cartão', corpo, function (o) {
+      var cart = $('#f-cart', o).value, mes = $('#f-mes', o).value, val = parseVal($('#f-val', o).value);
+      if (!val || val <= 0) { toast('Informe um valor maior que zero.', 'err'); return false; }
+      var cat = E.catDoCartao(cart);
+      if (db.categorias.despesa.indexOf(cat) < 0) db.categorias.despesa.push(cat);
+      var dias = E.diasNoMes(mes), data = mes + '-' + String(dias).padStart(2, '0');
+      var desc = 'Pagamento fatura ' + cart + ' ' + E.mesLabel(mes);
+      db.lancamentos.push({ id: S.novoId('l'), data: data, desc: desc, valor: -val, cat: cat, conta: 'Banco', rec: false });
+      S.touch('Lançamento fatura: ' + desc);
+      toast('Fatura lançada');
+    });
   }
 
   /* ========================================================= TELA · FLUXO === */
@@ -784,6 +806,10 @@
       '<div class="alert" style="margin-top:12px"><span class="ic">⚠</span><div>“A pagar nominal” inclui juros que ainda não correram. O valor justo para quitar antecipadamente é o <b>valor presente</b>. Confirme o número oficial com o banco antes de fechar qualquer quitação.</div></div>' +
       '</div>' +
 
+      '<div class="card" style="margin-bottom:14px"><h3>Amortizações do mês <span class="tag">' + E.mesLabel(st.mes) + '</span></h3>' +
+      '<div class="inline" style="margin-bottom:12px"><button class="btn pri" id="nova-amort">+ Registrar Amortização</button></div>' +
+      '<div id="lista-amort"></div></div>' +
+
       '<div class="card"><h3>Evolução do saldo devedor</h3>' +
       C.legenda([{ nome: 'Saldo devedor (valor presente)', cor: 'var(--s5)' }]) + '<div id="ch-dv"></div></div>';
 
@@ -803,6 +829,35 @@
         confirmar('Excluir o empréstimo "' + db.emprestimos[i].desc + '"?', function () { db.emprestimos.splice(i, 1); S.touch('Excluiu empréstimo'); toast('Empréstimo excluído'); });
       };
     });
+
+    // Preencher lista de amortizações do mês
+    var amortListaEl = $('#lista-amort');
+    var mesAmort = st.mes || db.meta.mesRef;
+    var linhasAmort = [];
+    db.emprestimos.forEach(function (ep, i) {
+      (ep.amortizacoes || []).forEach(function (a, ai) {
+        if (a.data.slice(0, 7) === mesAmort) {
+          linhasAmort.push('<tr data-i="' + i + '" data-ai="' + ai + '"><td>' + h(ep.desc) + '</td><td class="c num">' + a.data.slice(8) + '</td><td class="r num">' + E.brl(a.valor) + '</td><td>' + h(a.descricao || '—') + '</td><td class="c actions"><button class="iconbtn" data-aed>✎</button><button class="iconbtn del" data-adl>✕</button></td></tr>');
+        }
+      });
+    });
+    if (linhasAmort.length) {
+      amortListaEl.innerHTML = '<div class="tw"><table><thead><tr><th>Empréstimo</th><th class="c">Data</th><th class="r">Valor</th><th>Descrição</th><th class="c">Ações</th></tr></thead><tbody>' + linhasAmort.join('') + '</tbody></table></div>';
+      $$('[data-aed]', amortListaEl).forEach(function (b) { b.onclick = function () { var tr = b.closest('tr'); formAmortizacao(+tr.dataset.i, +tr.dataset.ai); }; });
+      $$('[data-adl]', amortListaEl).forEach(function (b) {
+        b.onclick = function () {
+          var tr = b.closest('tr'), ei = +tr.dataset.i, ai = +tr.dataset.ai, ep = db.emprestimos[ei], a = ep.amortizacoes[ai];
+          confirmar('Remover amortização de ' + E.brl(a.valor) + ' em ' + a.data + '?', function () {
+            db.emprestimos[ei].amortizacoes.splice(ai, 1);
+            db.lancamentos = db.lancamentos.filter(function (l) { return !(l.desc.indexOf('Amortização') >= 0 && l.data === a.data && Math.abs(l.valor + a.valor) < 0.01); });
+            S.touch('Removeu amortização'); render();
+          });
+        };
+      });
+    } else {
+      amortListaEl.innerHTML = '<div class="empty">Nenhuma amortização neste mês.</div>';
+    }
+    $('#nova-amort').onclick = function () { formAmortizacao(-1, -1); };
 
     C.linha($('#ch-dv'), {
       labels: serie.map(function (s) { return E.mesLabel(s.mes); }),
@@ -857,6 +912,35 @@
     };
     ['#e-p', '#e-v', '#e-n'].forEach(function (s) { $(s, ovl).oninput = prev; });
     prev();
+  }
+  function formAmortizacao(ei, ai) {
+    var ep = ei >= 0 ? db.emprestimos[ei] : null;
+    var a = ai >= 0 && ep ? ep.amortizacoes[ai] : null;
+    var corpo = '<div class="grid" style="grid-template-columns:1fr 1fr;gap:12px">' +
+      (ei < 0 ? '<div class="fld" style="grid-column:1/-1"><label>Empréstimo</label><select id="a-ep">' +
+        opts(db.emprestimos.map(function (e, i) { return { v: String(i), l: e.desc }; }), '') +
+        '</select></div>' : '') +
+      '<div class="fld"><label>Data da amortização</label><input type="date" id="a-d" value="' + (a ? a.data : E.hoje()) + '"></div>' +
+      '<div class="fld"><label>Valor (R$)</label><input id="a-v" inputmode="decimal" value="' + (a ? a.valor.toFixed(2).replace('.', ',') : '') + '"></div>' +
+      '<div class="fld" style="grid-column:1/-1"><label>Descrição (opcional)</label><input id="a-desc" value="' + (a ? h(a.descricao || '') : 'Amortização extra') + '"></div></div>';
+    modal(a ? 'Editar amortização' : 'Registrar amortização', corpo, function (o) {
+      var eix = ei >= 0 ? ei : +$('#a-ep', o).value; if (eix < 0) { toast('Selecione um empréstimo.', 'err'); return false; }
+      var data = $('#a-d', o).value, val = parseVal($('#a-v', o).value), desc = $('#a-desc', o).value.trim();
+      if (!data || !val || val <= 0) { toast('Preencha data e valor.', 'err'); return false; }
+      var ep2 = db.emprestimos[eix];
+      if (!ep2.amortizacoes) ep2.amortizacoes = [];
+      var obj = { data: data, valor: E.r2(val), descricao: desc };
+      if (a) {
+        Object.keys(obj).forEach(function (k) { a[k] = obj[k]; });
+        db.lancamentos = db.lancamentos.filter(function (l) { return !(l.desc.indexOf('Amortização') >= 0 && l.data.slice(0, 7) === data.slice(0, 7) && Math.abs(l.valor + val) < 0.01); });
+      } else {
+        ep2.amortizacoes.push(obj);
+      }
+      var cat = 'Amortização ' + ep2.cod;
+      if (db.categorias.despesa.indexOf(cat) < 0) db.categorias.despesa.push(cat);
+      db.lancamentos.push({ id: S.novoId('l'), data: data, desc: 'Amortização ' + ep2.desc, valor: -val, cat: cat, conta: 'Banco', rec: false });
+      S.touch('Amortização salva: ' + desc); toast('Amortização registrada'); render();
+    });
   }
 
   /* ===================================================== TELA · AUDITORIA === */
@@ -922,7 +1006,7 @@
         if (E.todasCategorias(db).indexOf(v) >= 0) { toast('Essa categoria já existe.', 'err'); return; }
         db.categorias[cl].push(v);
         db.categorias[cl].sort(function (a, b2) { return a.localeCompare(b2, 'pt-BR'); });
-        S.touch('Nova categoria: ' + v); toast('Categoria adicionada');
+        S.touch('Nova categoria: ' + v); toast('Categoria adicionada'); render();
       };
     });
     $$('[data-add]').forEach(function (i) { i.onkeydown = function (e) { if (e.key === 'Enter') $('[data-addbtn="' + i.dataset.add + '"]').click(); }; });
@@ -935,7 +1019,7 @@
             db.categorias[cl][i] = novo;
             db.lancamentos.forEach(function (l) { if (l.cat === antigo) l.cat = novo; });
             (db.recorrentes || []).forEach(function (r) { if (r.cat === antigo) r.cat = novo; });
-            S.touch('Renomeou categoria ' + antigo + ' → ' + novo); toast('Categoria renomeada');
+            S.touch('Renomeou categoria ' + antigo + ' → ' + novo); toast('Categoria renomeada'); render();
           });
       };
     });
@@ -945,7 +1029,7 @@
         var n = db.lancamentos.filter(function (l) { return l.cat === c; }).length;
         confirmar(n ? 'A categoria "' + c + '" tem ' + n + ' lançamento(s). Eles ficarão sem categoria. Continuar?' : 'Excluir a categoria "' + c + '"?', function () {
           db.categorias[cl].splice(i, 1);
-          S.touch('Excluiu categoria: ' + c); toast('Categoria excluída');
+          S.touch('Excluiu categoria: ' + c); toast('Categoria excluída'); render();
         });
       };
     });
