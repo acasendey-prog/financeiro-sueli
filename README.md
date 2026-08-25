@@ -26,14 +26,37 @@ Duas formas de rodar:
 | **Painel** | KPIs do ano, fluxo mensal, evolução do saldo, maiores despesas e receitas |
 | **Lançamentos** | Extrato diário com saldo em cascata, busca, filtros e CRUD completo |
 | **Fixos & Recorrentes** | Cadastre uma vez (aluguel, plano de saúde, pensão…) e o sistema replica nos meses futuros |
-| **Cartões** | Fatura, parcelado e à vista + encargos, mês a mês, por cartão |
+| **Cartões** | Fatura, parcelado e à vista + encargos, mês a mês. Botão *Lançar Fatura* para registrar faturas passadas e futuras |
 | **Parcelamentos** | Cadastro único da compra; as parcelas aparecem numeradas em todos os meses |
-| **Metas & Dívidas** | Metas de poupança e consignados com taxa implícita (RATE), parcelas antecipadas e valor justo de quitação (PV) |
+| **Metas & Dívidas** | Metas de poupança, demonstrativo completo dos consignados, registro de amortizações com escolha das parcelas abatidas e evolução do saldo devedor por contrato |
 | **Fluxo de Caixa** | 25 meses de saldo inicial → entradas → saídas → saldo final |
 | **Relatórios** | Matriz categoria × mês, ranking, média e participação percentual |
 | **Auditoria** | Verificação automática da base a cada carregamento |
 | **Categorias** | Criar, renomear (propaga para os lançamentos) e excluir |
 | **Dados & Backup** | Exportar/importar JSON, exportar CSV, mês de referência, reset |
+
+## Cartões: parcelado × à vista
+
+Só existe um cartão cadastrado — **Itaú**, cuja fatura é lançada na categoria
+`Cartão`. O quadro se monta assim:
+
+| Coluna | De onde vem |
+|---|---|
+| **Fatura paga** | soma dos lançamentos de saída na categoria do cartão naquele mês |
+| **Parcelado** | soma das parcelas do mês vindas do cadastro de *Parcelamentos* |
+| **À vista + encargos** | fatura − parcelado |
+
+Ou seja: o parcelado é o que o sistema já sabe que estava dentro da fatura; o
+resto (compras à vista, anuidade, juros, IOF) aparece como *à vista + encargos*.
+Enquanto não houver parcelamentos cadastrados, o parcelado fica em R$ 0,00 e
+tudo cai em *à vista* — que é o retrato correto de hoje.
+
+Para lançar faturas antigas ou futuras use **Cartões → + Lançar Fatura**:
+escolha o mês, o dia do pagamento e o valor. A prévia do formulário mostra
+quanto de parcelado já existe naquele mês e qual será o resultado do à vista.
+A auditoria avisa quando existe parcela cadastrada sem fatura lançada, ou
+quando a fatura é menor que o parcelado.
+
 
 ## Arquitetura de dados
 
@@ -60,7 +83,9 @@ Navegador
   "parcelamentos":[{ "id", "cartao", "fornecedor", "mes1", "n", "valor" }],
   "recorrentes":  [{ "id", "desc", "cat", "valor", "dia", "inicio", "fim", "ativo" }],
   "metas":        [{ "nome", "alvo", "guardado", "prazo" }],
-  "emprestimos":  [{ "cod", "desc", "principal", "n", "parcela", "mes1" }]
+  "cartoes":      [{ "nome", "cat" }],
+  "emprestimos":  [{ "cod", "desc", "principal", "n", "parcela", "mes1",
+                     "amortizacoes": [{ "data", "valor", "parcelas": [], "lancId" }] }]
 }
 ```
 
@@ -77,13 +102,23 @@ Tudo o mais — saldos, faturas, matriz de parcelas, taxas, projeções — é
    realizado de projeção.
 5. **Auditoria** — roda a cada carregamento e sinaliza lançamentos sem
    categoria, saldos negativos, faturas não lançadas, metas sem lastro etc.
-6. **Parcelas antecipadas** — cada consignado tem um campo *Parcelas já
-   antecipadas*: são as parcelas do fim do contrato que já foram quitadas por
-   amortização extra. As parcelas regulares o sistema conta sozinho pelo
-   calendário; nesse campo entram só as que você comprou adiantado. O EP 3
-   (Consignado 297) já vem com **59** — as parcelas 14 a 72, antecipadas entre
-   abr e ago/2026. Depois de cada nova amortização, some as parcelas
-   antecipadas ali e o saldo devedor se refaz sozinho.
+6. **Amortização de consignado** — em *Metas & Dívidas → Registrar
+   amortização* você escolhe o contrato, a data do pagamento e **quantas
+   parcelas foram abatidas**. A amortização quita sempre as **últimas** parcelas
+   do contrato, de trás para a frente: informe a quantidade ou clique numa
+   parcela da grade e tudo dela até o fim entra no abatimento.
+   O sistema então:
+   - sugere o **valor presente** das parcelas escolhidas (você pode substituir
+     pelo valor do comprovante, que é o que vale);
+   - cria o **lançamento de saída no fluxo de caixa na data do pagamento**,
+     numa categoria própria (`Amortização EP 1`, `Amortização EP 2`…);
+   - recalcula sozinho parcelas pagas, saldo devedor, nominal restante,
+     economia de quitação e as curvas do gráfico.
+
+   O lançamento fica editável como qualquer outro, e excluir a amortização
+   remove também o lançamento. Dá para registrar quantas amortizações quiser no
+   mesmo mês. O EP 3 (Consignado 297) já vem com as **6 amortizações reais** de
+   abr a ago/2026, somando R$ 9.815,18 e 59 parcelas abatidas (14 a 72).
 
 ## Stack
 
@@ -211,7 +246,7 @@ transformam num **app instalável**, sem passar pela Play Store/App Store.
 1. Abra https://financeiro-sueli.netlify.app no Chrome.
 2. Toque no menu **⋮** (três pontinhos) → **"Instalar aplicativo"** (ou
    **"Adicionar à tela inicial"**).
-3. Confirme. O ícone "SF" aparece na tela inicial e abre em tela cheia.
+3. Confirme. O ícone do sistema aparece na tela inicial e abre em tela cheia.
 
 **iPhone/iPad (Safari):**
 1. Abra o link no **Safari** (tem que ser o Safari — outros navegadores no

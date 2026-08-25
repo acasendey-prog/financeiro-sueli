@@ -148,10 +148,22 @@
   E.totalParcelado = function (db, m, cartao) {
     return r2(E.parcelasDoMes(db, m, cartao).reduce(function (a, b) { return a + b.valor; }, 0));
   };
+  /* -------------------------------------------------------------- cartões */
+  /** cadastro de cartões: [{nome, cat}] — a categoria é onde entra o pagamento da fatura */
+  E.cadastroCartoes = function (db) {
+    if (db.cartoes && db.cartoes.length) return db.cartoes;
+    return [{ nome: 'Itaú', cat: 'Cartão' }];
+  };
+  E.cartoes = function (db) {
+    return E.cadastroCartoes(db).map(function (c) { return c.nome; });
+  };
+  E.catDoCartao = function (db, cartao) {
+    var r = E.cadastroCartoes(db).filter(function (c) { return c.nome === cartao; })[0];
+    return r ? r.cat : 'Cartão';
+  };
   /** fatura efetivamente paga = lançamentos na categoria do cartão */
-  E.catDoCartao = function (cartao) { return cartao === 'Carrefour' ? 'CC Carrefour' : 'CC Itaú'; };
   E.faturaPaga = function (db, m, cartao) {
-    var cat = E.catDoCartao(cartao), s = 0;
+    var cat = E.catDoCartao(db, cartao), s = 0;
     db.lancamentos.forEach(function (l) {
       if (l.data.slice(0, 7) === m && l.cat === cat && l.valor < 0) s -= l.valor;
     });
@@ -160,12 +172,6 @@
   E.cartaoMes = function (db, m, cartao) {
     var par = E.totalParcelado(db, m, cartao), fat = E.faturaPaga(db, m, cartao);
     return { parcelado: par, fatura: fat, aVista: r2(fat - par) };
-  };
-  E.cartoes = function (db) {
-    var s = {};
-    db.parcelamentos.forEach(function (p) { s[p.cartao] = 1; });
-    s['Itaú'] = 1; s['Carrefour'] = 1;
-    return Object.keys(s).sort();
   };
   /** situação de cada compromisso parcelado, relativa ao mês de referência */
   E.statusParcelamento = function (db, p) {
@@ -196,40 +202,104 @@
     if (!i) return r2(pmt * n);
     return r2(pmt * (1 - Math.pow(1 + i, -n)) / i);
   };
+  /* ---------------------------------------------------------- amortizações */
+  /** total desembolsado em amortizações extras até o mês `ate` (inclusive) */
   E.amortizacoesAte = function (db, ep, ate) {
     var tot = 0;
     (ep.amortizacoes || []).forEach(function (a) { if (a.data.slice(0, 7) <= ate) tot += a.valor; });
     return r2(tot);
   };
-  E.emprestimo = function (db, ep) {
+  /** conjunto das parcelas já antecipadas até o mês `ate` (inclusive) */
+  E.parcelasAntecipadas = function (ep, ate) {
+    var set = {};
+    (ep.amortizacoes || []).forEach(function (a) {
+      if (ate && a.data.slice(0, 7) > ate) return;
+      (a.parcelas || []).forEach(function (p) { set[p] = 1; });
+    });
+    // compatibilidade: `antecipadas` legado sem lista de parcelas → assume a cauda
+    var legado = ep.antecipadas || 0;
+    if (legado > 0 && !Object.keys(set).length) {
+      for (var k = ep.n; k > ep.n - legado; k--) set[k] = 1;
+    }
+    return set;
+  };
+  /** parcelas pagas pelo calendário até o mês `m` (1 .. k) */
+  E.parcelasCalendario = function (ep, m) {
+    return Math.max(0, Math.min(ep.n, E.diffMes(ep.mes1, m) + 1));
+  };
+  /** mapa completo de cada parcela: 1=calendário, 2=antecipada, 0=em aberto */
+  E.mapaParcelas = function (db, ep, m) {
+    m = m || db.meta.mesRef;
+    var k = E.parcelasCalendario(ep, m), ant = E.parcelasAntecipadas(ep, m), out = [];
+    for (var j = 1; j <= ep.n; j++) {
+      out.push({
+        n: j, mes: E.addMes(ep.mes1, j - 1),
+        estado: j <= k ? 'calendario' : (ant[j] ? 'antecipada' : 'aberta')
+      });
+    }
+    return out;
+  };
+  /** situação completa do empréstimo em um mês de referência */
+  E.emprestimo = function (db, ep, m) {
+    m = m || db.meta.mesRef;
     var i = E.taxaImplicita(ep.principal, ep.parcela, ep.n);
-    var pagas = Math.max(0, Math.min(ep.n, E.diffMes(ep.mes1, db.meta.mesRef) + 1 + (ep.antecipadas || 0)));
-    var restantes = ep.n - pagas;
-    var pv = E.valorPresente(ep.parcela, i, restantes);
+    var mapa = E.mapaParcelas(db, ep, m);
+    var abertas = mapa.filter(function (p) { return p.estado === 'aberta'; });
+    var kCal = E.parcelasCalendario(ep, m);
+    var nAnt = mapa.filter(function (p) { return p.estado === 'antecipada'; }).length;
+    var pagas = kCal + nAnt;
+    var restantes = abertas.length;
+    // valor presente exato: cada parcela em aberto descontada pela distância real em meses
+    var pv = 0;
+    abertas.forEach(function (p) {
+      var t = E.diffMes(m, p.mes);
+      if (t < 1) t = 1;
+      pv += ep.parcela / Math.pow(1 + i, t);
+    });
+    pv = r2(pv);
+    var nominal = r2(ep.parcela * restantes);
     return {
       taxaMes: i, taxaAno: Math.pow(1 + i, 12) - 1,
       totalContrato: r2(ep.parcela * ep.n),
-      pagas: pagas, restantes: restantes,
-      nominalRestante: r2(ep.parcela * restantes),
-      quitarHoje: pv, economia: r2(ep.parcela * restantes - pv),
+      pagas: pagas, pagasCalendario: kCal, antecipadas: nAnt,
+      restantes: restantes,
+      nominalRestante: nominal,
+      quitarHoje: pv, saldoDevedor: pv,
+      economia: r2(nominal - pv),
+      primeiraAberta: abertas.length ? abertas[0].n : null,
+      ultimaAberta: abertas.length ? abertas[abertas.length - 1].n : null,
       ultima: E.addMes(ep.mes1, ep.n - 1),
       quitado: restantes <= 0,
-      amortizado: E.amortizacoesAte(db, ep, db.meta.mesRef)
+      amortizado: E.amortizacoesAte(db, ep, m),
+      pctPago: ep.n ? pagas / ep.n : 0
     };
   };
-  E.saldoDevedorSerie = function (db) {
+  /** série do saldo devedor: uma linha por empréstimo + total */
+  E.saldoDevedorPorEmprestimo = function (db) {
     var ms = E.meses(db);
-    return ms.map(function (m) {
-      var tot = 0, parcelaMes = 0;
+    var linhas = db.emprestimos.map(function (ep) {
+      return {
+        cod: ep.cod, desc: ep.desc,
+        dados: ms.map(function (m) {
+          if (m < ep.mes1) return E.diffMes(m, ep.mes1) <= 0 ? 0 : 0;
+          return E.emprestimo(db, ep, m).saldoDevedor;
+        })
+      };
+    });
+    var total = ms.map(function (_, idx) {
+      return r2(linhas.reduce(function (a, l) { return a + l.dados[idx]; }, 0));
+    });
+    return { meses: ms, linhas: linhas, total: total };
+  };
+  E.saldoDevedorSerie = function (db) {
+    var s = E.saldoDevedorPorEmprestimo(db);
+    return s.meses.map(function (m, idx) {
+      var parcelaMes = 0;
       db.emprestimos.forEach(function (ep) {
-        var i = E.taxaImplicita(ep.principal, ep.parcela, ep.n);
-        var ant = ep.antecipadas || 0;
-        var pagas = Math.max(0, Math.min(ep.n, E.diffMes(ep.mes1, m) + 1 + ant));
-        var rest = ep.n - pagas;
-        tot += (pagas <= 0) ? ep.principal : E.valorPresente(ep.parcela, i, rest);
-        if (rest > 0 && m >= ep.mes1) parcelaMes += ep.parcela;
+        var x = E.emprestimo(db, ep, m);
+        if (x.restantes > 0 && m >= ep.mes1) parcelaMes += ep.parcela;
       });
-      return { mes: m, saldo: r2(tot), parcela: r2(parcelaMes) };
+      return { mes: m, saldo: s.total[idx], parcela: r2(parcelaMes) };
     });
   };
 

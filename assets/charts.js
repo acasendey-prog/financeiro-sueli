@@ -98,8 +98,37 @@
           svg.appendChild(lg);
           svg.appendChild(el('path', { d: a, fill: 'url(#' + gid + ')' }));
         }
-        svg.appendChild(el('path', { d: d, fill: 'none', stroke: s.cor, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+        svg.appendChild(el('path', {
+          d: d, fill: 'none', stroke: s.cor, 'stroke-width': s.espessura || 2,
+          'stroke-dasharray': s.tracejado || null,
+          'stroke-linejoin': 'round', 'stroke-linecap': 'round'
+        }));
       });
+
+      /* rótulos de dados — só nas séries marcadas, espaçados para não colidir */
+      if (o.rotulos) {
+        var passoR = Math.max(1, Math.ceil(o.labels.length / Math.max(2, Math.floor(iw / 74))));
+        o.series.forEach(function (s) {
+          if (s.rotular === false) return;
+          var ocupados = [];
+          s.dados.forEach(function (v, i) {
+            if (v === null || v === undefined) return;
+            if (i % passoR && i !== o.labels.length - 1) return;
+            var x = X(i), y = Y(v) - 9;
+            // desvia para baixo se já houver rótulo muito perto neste ponto
+            var colide = ocupados.some(function (p) { return Math.abs(p.x - x) < 46 && Math.abs(p.y - y) < 12; });
+            if (colide) y = Y(v) + 15;
+            ocupados.push({ x: x, y: y });
+            var anchor = i === 0 ? 'start' : (i === o.labels.length - 1 ? 'end' : 'middle');
+            var halo = el('text', { class: 'lbl-halo', x: x, y: y, 'text-anchor': anchor });
+            halo.textContent = curto(v);
+            svg.appendChild(halo);
+            var t = el('text', { class: 'lbl-pt', x: x, y: y, 'text-anchor': anchor, fill: s.cor });
+            t.textContent = curto(v);
+            svg.appendChild(t);
+          });
+        });
+      }
 
       /* camada de hover: faixa por ponto + crosshair */
       var cross = el('line', { y1: pad.t, y2: pad.t + ih, stroke: 'rgba(255,255,255,.26)', 'stroke-width': 1, opacity: 0 });

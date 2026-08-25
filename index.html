@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#120e1b">
+<meta name="theme-color" content="#23262c">
 <meta name="description" content="Sistema de controle financeiro pessoal — lançamentos diários, cartões, parcelamentos, fluxo de caixa, metas e consignados.">
 <title>Controle Financeiro — Sueli</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%235b3fa8'/%3E%3Ctext x='32' y='43' font-family='system-ui' font-size='30' font-weight='700' fill='%23ede4ff' text-anchor='middle'%3ESF%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2048%2048%22%20%3E%20%3Cdefs%3E%20%3ClinearGradient%20id%3D%22a%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%20%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23a97ff7%22%2F%3E%3Cstop%20offset%3D%2252%25%22%20stop-color%3D%22%237d5bd4%22%2F%3E%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%2342277d%22%2F%3E%20%3C%2FlinearGradient%3E%20%3ClinearGradient%20id%3D%22b%22%20x1%3D%220%22%20y1%3D%221%22%20x2%3D%221%22%20y2%3D%220%22%3E%20%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23ffffff%22%20stop-opacity%3D%22.55%22%2F%3E%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%23ffffff%22%20stop-opacity%3D%221%22%2F%3E%20%3C%2FlinearGradient%3E%20%3C%2Fdefs%3E%20%3Crect%20x%3D%221%22%20y%3D%221%22%20width%3D%2246%22%20height%3D%2246%22%20rx%3D%2212%22%20fill%3D%22url%28%23a%29%22%2F%3E%20%3Crect%20x%3D%221.75%22%20y%3D%221.75%22%20width%3D%2244.5%22%20height%3D%2244.5%22%20rx%3D%2211.3%22%20fill%3D%22none%22%20stroke%3D%22%23ffffff%22%20stroke-opacity%3D%22.22%22%2F%3E%20%3Crect%20x%3D%2211%22%20y%3D%2227%22%20width%3D%225.4%22%20height%3D%2211%22%20rx%3D%222.2%22%20fill%3D%22%23ffffff%22%20fill-opacity%3D%22.42%22%2F%3E%20%3Crect%20x%3D%2221.3%22%20y%3D%2221%22%20width%3D%225.4%22%20height%3D%2217%22%20rx%3D%222.2%22%20fill%3D%22%23ffffff%22%20fill-opacity%3D%22.62%22%2F%3E%20%3Crect%20x%3D%2231.6%22%20y%3D%2214%22%20width%3D%225.4%22%20height%3D%2224%22%20rx%3D%222.2%22%20fill%3D%22%23ffffff%22%20fill-opacity%3D%22.86%22%2F%3E%20%3Cpath%20d%3D%22M11.6%2022.4%20L20%2015.6%20L26.2%2019.4%20L36.6%209.6%22%20fill%3D%22none%22%20stroke%3D%22url%28%23b%29%22%20stroke-width%3D%222.6%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%20%3Ccircle%20cx%3D%2236.6%22%20cy%3D%229.6%22%20r%3D%223.1%22%20fill%3D%22%23ffffff%22%2F%3E%20%3C%2Fsvg%3E">
 
 <!-- App instalável (PWA) -->
 <link rel="manifest" href="manifest.webmanifest">
@@ -23,9 +23,9 @@
 </head>
 <body>
 <div id="app">
-  <div style="display:grid;place-items:center;height:100vh;color:#bab0cc;font-family:system-ui">
+  <div style="display:grid;place-items:center;height:100vh;color:#b7bcc6;font-family:system-ui">
     <div style="text-align:center">
-      <div style="width:46px;height:46px;border-radius:12px;margin:0 auto 14px;background:linear-gradient(145deg,#a586f5,#4a2f8f);display:grid;place-items:center;color:#14071f;font-weight:700">SF</div>
+      <div style="width:56px;height:56px;margin:0 auto 16px"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="56" height="56"> <defs> <linearGradient id="a" x1="0" y1="0" x2="1" y2="1"> <stop offset="0%" stop-color="#a97ff7"/><stop offset="52%" stop-color="#7d5bd4"/><stop offset="100%" stop-color="#42277d"/> </linearGradient> <linearGradient id="b" x1="0" y1="1" x2="1" y2="0"> <stop offset="0%" stop-color="#ffffff" stop-opacity=".55"/><stop offset="100%" stop-color="#ffffff" stop-opacity="1"/> </linearGradient> </defs> <rect x="1" y="1" width="46" height="46" rx="12" fill="url(#a)"/> <rect x="1.75" y="1.75" width="44.5" height="44.5" rx="11.3" fill="none" stroke="#ffffff" stroke-opacity=".22"/> <rect x="11" y="27" width="5.4" height="11" rx="2.2" fill="#ffffff" fill-opacity=".42"/> <rect x="21.3" y="21" width="5.4" height="17" rx="2.2" fill="#ffffff" fill-opacity=".62"/> <rect x="31.6" y="14" width="5.4" height="24" rx="2.2" fill="#ffffff" fill-opacity=".86"/> <path d="M11.6 22.4 L20 15.6 L26.2 19.4 L36.6 9.6" fill="none" stroke="url(#b)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/> <circle cx="36.6" cy="9.6" r="3.1" fill="#ffffff"/> </svg></div>
       Carregando o sistema…
     </div>
   </div>

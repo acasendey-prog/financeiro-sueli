@@ -11,7 +11,7 @@
   var IDB_KEY = 'db';
   var LS_KEY = 'fin.db.v1';
   var LS_LOG = 'fin.log.v1';
-  var SCHEMA = 3;
+  var SCHEMA = 4;
 
   /* ------------------------------------------------------------- IndexedDB */
   function openIDB() {
@@ -62,8 +62,107 @@
       db.lancamentos.forEach(function (l) { if (!l.conta) l.conta = 'Banco'; });
       db.versao = 3;
     }
+    if (db.versao < 4) {
+      migrar4(db);
+      db.versao = 4;
+    }
     db.esquema = SCHEMA;
     return db;
+  }
+
+  /* --- v4: cadastro de cartões, renome de categoria e amortizações detalhadas --- */
+  function migrar4(db) {
+    /* 1. cadastro explícito de cartões (antes era fixo em código, com Carrefour) */
+    if (!db.cartoes || !db.cartoes.length) {
+      var cats = db.categorias.despesa || [];
+      var achado = ['CC Itaú', 'Cartão', 'Cartão de Crédito'].filter(function (c) { return cats.indexOf(c) >= 0; })[0];
+      db.cartoes = [{ nome: 'Itaú', cat: achado || 'Cartão' }];
+    }
+
+    /* 2. "Empregada Dom." passa a ser "Pousada Maria Veiga" */
+    renomearCategoria(db, 'Empregada Dom.', 'Pousada Maria Veiga');
+    renomearCategoria(db, 'Empregada Doméstica', 'Pousada Maria Veiga');
+
+    /* 3. `antecipadas` (contagem solta) vira lista de amortizações com as parcelas */
+    db.emprestimos.forEach(function (ep) {
+      if (ep.amortizacoes && ep.amortizacoes.length) return;
+      var legado = ep.antecipadas || 0;
+      if (legado <= 0) { ep.amortizacoes = ep.amortizacoes || []; return; }
+
+      // lançamentos de amortização deste contrato, em ordem cronológica
+      var lans = db.lancamentos.filter(function (l) {
+        return l.valor < 0 && /amortiza/i.test(l.desc || '') && refereContrato(l.desc, ep.cod);
+      }).sort(function (a, b) { return a.data < b.data ? -1 : a.data > b.data ? 1 : 0; });
+
+      var topo = ep.n, piso = ep.n - legado + 1;     // a cauda antecipada é [piso .. topo]
+      var itens = lans.map(function (l) { return { lan: l, faixa: lerFaixa(l.desc) }; });
+
+      // primeiro as faixas explícitas ("parcelas 22 a 31")
+      var usadas = {};
+      itens.forEach(function (it) {
+        if (!it.faixa || it.faixa.aberta) return;
+        it.parcelas = [];
+        for (var j = it.faixa.de; j <= it.faixa.ate; j++) { it.parcelas.push(j); usadas[j] = 1; }
+      });
+      // o que sobrou da cauda vai para os lançamentos sem faixa, do topo para baixo,
+      // rateado pelo valor pago (aproximação registrada na observação)
+      var sobra = [];
+      for (var k = topo; k >= piso; k--) if (!usadas[k]) sobra.push(k);   // decrescente
+      var semFaixa = itens.filter(function (it) { return !it.parcelas; });
+      var somaV = semFaixa.reduce(function (a, it) { return a + Math.abs(it.lan.valor); }, 0) || 1;
+      var pos = 0;
+      semFaixa.forEach(function (it, idx) {
+        var qtd = idx === semFaixa.length - 1
+          ? sobra.length - pos
+          : Math.round(Math.abs(it.lan.valor) / somaV * sobra.length);
+        qtd = Math.max(0, Math.min(qtd, sobra.length - pos));
+        it.parcelas = sobra.slice(pos, pos + qtd).sort(function (a, b) { return a - b; });
+        it.aproximado = true;
+        pos += qtd;
+      });
+
+      ep.amortizacoes = itens.filter(function (it) { return it.parcelas && it.parcelas.length; })
+        .map(function (it) {
+          return {
+            data: it.lan.data, valor: Math.abs(it.lan.valor),
+            parcelas: it.parcelas, lancId: it.lan.id,
+            descricao: it.aproximado ? 'Migrado do extrato — parcelas estimadas' : 'Migrado do extrato'
+          };
+        });
+
+      // nada encontrado no extrato: guarda um registro consolidado, sem lançamento novo
+      if (!ep.amortizacoes.length) {
+        var todas = [];
+        for (var z = piso; z <= topo; z++) todas.push(z);
+        ep.amortizacoes = [{
+          data: (db.meta.mesRef || '2026-01') + '-01', valor: 0, parcelas: todas,
+          descricao: 'Parcelas antecipadas registradas antes do detalhamento'
+        }];
+      }
+      ep.antecipadas = 0;
+    });
+  }
+  function refereContrato(desc, cod) {
+    if (!cod) return false;
+    var num = String(cod).replace(/\D+/g, '');
+    return new RegExp('\\b' + (num || cod) + '\\b').test(desc) ||
+      desc.toLowerCase().indexOf(String(cod).toLowerCase()) >= 0;
+  }
+  function lerFaixa(desc) {
+    var m = /parcelas?\s+(\d+)\s*(?:a|até|-|–)\s*(\d+)/i.exec(desc || '');
+    if (m) return { de: +m[1], ate: +m[2], aberta: false };
+    var m2 = /parcelas?\s+(\d+)\s+em\s+diante/i.exec(desc || '');
+    if (m2) return { de: +m2[1], ate: null, aberta: true };
+    return null;
+  }
+  function renomearCategoria(db, de, para) {
+    ['receita', 'despesa'].forEach(function (cl) {
+      var arr = db.categorias[cl] || [], i = arr.indexOf(de);
+      if (i < 0) return;
+      if (arr.indexOf(para) >= 0) arr.splice(i, 1); else arr[i] = para;
+    });
+    db.lancamentos.forEach(function (l) { if (l.cat === de) l.cat = para; });
+    (db.recorrentes || []).forEach(function (r) { if (r.cat === de) r.cat = para; });
   }
 
   /* --------------------------------------------------------------- objeto */

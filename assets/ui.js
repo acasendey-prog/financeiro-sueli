@@ -12,6 +12,30 @@
   function $(s, r) { return (r || document).querySelector(s); }
   function $$(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
 
+  /* ------------------------------------------------------------------ marca */
+  /** logotipo do sistema — tile em gradiente com curva de crescimento */
+  function logoSVG(tam) {
+    var s = tam || 40, uid = 'lg' + Math.random().toString(36).slice(2, 7);
+    return '<svg viewBox="0 0 48 48" width="' + s + '" height="' + s + '" role="img" aria-label="Controle Financeiro">' +
+      '<defs>' +
+      '<linearGradient id="' + uid + 'a" x1="0" y1="0" x2="1" y2="1">' +
+      '<stop offset="0%" stop-color="#a97ff7"/><stop offset="52%" stop-color="#7d5bd4"/><stop offset="100%" stop-color="#42277d"/>' +
+      '</linearGradient>' +
+      '<linearGradient id="' + uid + 'b" x1="0" y1="1" x2="1" y2="0">' +
+      '<stop offset="0%" stop-color="#ffffff" stop-opacity=".55"/><stop offset="100%" stop-color="#ffffff" stop-opacity="1"/>' +
+      '</linearGradient>' +
+      '</defs>' +
+      '<rect x="1" y="1" width="46" height="46" rx="12" fill="url(#' + uid + 'a)"/>' +
+      '<rect x="1.75" y="1.75" width="44.5" height="44.5" rx="11.3" fill="none" stroke="#ffffff" stroke-opacity=".22"/>' +
+      '<rect x="11" y="27" width="5.4" height="11" rx="2.2" fill="#ffffff" fill-opacity=".42"/>' +
+      '<rect x="21.3" y="21" width="5.4" height="17" rx="2.2" fill="#ffffff" fill-opacity=".62"/>' +
+      '<rect x="31.6" y="14" width="5.4" height="24" rx="2.2" fill="#ffffff" fill-opacity=".86"/>' +
+      '<path d="M11.6 22.4 L20 15.6 L26.2 19.4 L36.6 9.6" fill="none" stroke="url(#' + uid + 'b)" ' +
+      'stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '<circle cx="36.6" cy="9.6" r="3.1" fill="#ffffff"/>' +
+      '</svg>';
+  }
+
   function toast(msg, tipo) {
     var box = $('#toasts'), t = document.createElement('div');
     t.className = 'toast ' + (tipo || 'ok'); t.textContent = msg;
@@ -98,7 +122,8 @@
   function sidebar() {
     var atual = rotaAtual().id;
     return '<aside class="side" id="side">' +
-      '<div class="brand"><div class="mark">SF</div><div><b>Controle Financeiro</b><span>Sueli</span></div></div>' +
+      '<div class="brand"><div class="mark">' + logoSVG(40) + '</div>' +
+      '<div><b>Controle Financeiro</b><span>Sueli</span></div></div>' +
       '<nav class="nav">' + ROTAS.map(function (r) {
         if (r.g) return '<div class="grp">' + h(r.g) + '</div>';
         return '<a href="#' + r.id + '" class="' + (r.id === atual ? 'on' : '') + '"><span class="ic">' + r.ic + '</span>' + h(r.t) + '</a>';
@@ -167,8 +192,12 @@
     var av = E.diagnostico(db);
     var crit = av.filter(function (a) { return a.n === 'crit'; }).length;
 
-    var cartItau = doAno.reduce(function (a, c) { return a + E.faturaPaga(db, c.mes, 'Itaú'); }, 0);
-    var cartCarr = doAno.reduce(function (a, c) { return a + E.faturaPaga(db, c.mes, 'Carrefour'); }, 0);
+    var listaCarts = E.cartoes(db);
+    var porCartao = listaCarts.map(function (c) {
+      return { nome: c, total: doAno.reduce(function (a, x) { return a + E.faturaPaga(db, x.mes, c); }, 0) };
+    });
+    var cartTotal = porCartao.reduce(function (a, c) { return a + c.total; }, 0);
+    var cartSub = porCartao.map(function (c) { return c.nome + ' ' + E.brlCurto(c.total); }).join(' · ');
 
     root.innerHTML = topo('Painel ' + ano,
       'Posição consolidada · mês de referência <b>' + E.mesLabel(db.meta.mesRef) + '</b>',
@@ -184,7 +213,7 @@
       kpi('Resultado', E.brl(rec - des), (rec - des >= 0 ? 'superávit' : 'déficit') + ' no período', rec - des >= 0 ? 'acc-in' : 'acc-out') +
       kpi('Saldo em 31/12/' + ano, E.brl(fim), 'Posição projetada', 'acc-br') +
       kpi('Saldo hoje', E.brl(atual ? atual.saldoFinal : 0), 'Fim de ' + E.mesLabel(db.meta.mesRef), 'acc-br') +
-      kpi('Faturas de cartão', E.brl(cartItau + cartCarr), 'Itaú ' + E.brlCurto(cartItau) + ' · Carrefour ' + E.brlCurto(cartCarr), 'acc-am') +
+      kpi('Faturas de cartão', E.brl(cartTotal), cartSub || 'nenhum cartão cadastrado', 'acc-am') +
       '</div>' +
 
       '<div class="grid g-2" style="margin-bottom:14px">' +
@@ -350,7 +379,8 @@
       '<div class="fld"><label>Valor (R$)</label><input id="f-val" inputmode="decimal" value="' + (l ? Math.abs(l.valor).toFixed(2).replace('.', ',') : '') + '" placeholder="0,00"></div>' +
       '<div class="fld" style="grid-column:1/-1"><label>Conta / origem</label><input id="f-conta" value="' + h(l ? l.conta || 'Banco' : 'Banco') + '"></div>' +
       '</div>' +
-      '<div class="hint" style="margin-top:12px">A categoria define em qual relatório o valor entra. Pagamentos de fatura devem usar <b>CC Itaú</b> ou <b>CC Carrefour</b>.</div>';
+      '<div class="hint" style="margin-top:12px">A categoria define em qual relatório o valor entra. Pagamentos de fatura devem usar ' +
+      E.cadastroCartoes(db).map(function (c) { return '<b>' + h(c.cat) + '</b>'; }).join(' ou ') + '.</div>';
 
     var ovl = modal(id ? 'Editar lançamento' : 'Novo lançamento', corpo, function (o) {
       var data = $('#f-data', o).value, desc = $('#f-desc', o).value.trim();
@@ -450,7 +480,8 @@
   /* ======================================================= TELA · CARTÕES === */
   function viewCartoes(root) {
     var ms = E.meses(db), carts = E.cartoes(db);
-    var cores = { 'Itaú': 'var(--s2)', 'Carrefour': 'var(--s3)' };
+    var PAL = ['var(--s2)', 'var(--s3)', 'var(--s4)', 'var(--s1)', 'var(--s5)'];
+    var cores = {}; carts.forEach(function (c, i) { cores[c] = PAL[i % PAL.length]; });
     var rows = ms.map(function (m) {
       var cells = carts.map(function (c) {
         var x = E.cartaoMes(db, m, c);
@@ -470,21 +501,29 @@
     var totGeral = ms.reduce(function (a, m) { return a + carts.reduce(function (b, c) { return b + E.faturaPaga(db, m, c); }, 0); }, 0);
 
     root.innerHTML = topo('Cartões de crédito',
-      'Parcelado vem do cadastro de parcelamentos; a fatura paga vem do extrato. À vista = fatura − parcelado.',
+      'Fatura paga = lançamentos na categoria do cartão · Parcelado = cadastro de parcelamentos · <b>À vista = fatura − parcelado</b>',
+      '<div class="monthbar"><select id="selmes">' + selMeses(st.mes) + '</select></div>' +
       '<button class="btn pri" id="novafatura">+ Lançar Fatura</button>') +
 
       '<div class="grid g-2" style="margin-bottom:14px">' +
       carts.map(function (c, i) {
         var x = E.cartaoMes(db, st.mes, c);
+        var cat = E.catDoCartao(db, c);
         var abertos = db.parcelamentos.filter(function (p) { return p.cartao === c && E.statusParcelamento(db, p).status !== 'quitado'; });
         var falta = abertos.reduce(function (a, p) { return a + E.statusParcelamento(db, p).falta; }, 0);
+        var alerta = x.fatura === 0 && x.parcelado > 0
+          ? '<div class="alert" style="margin-top:12px"><span class="ic">⚠</span><div>Há <b>' + E.brl(x.parcelado) + '</b> em parcelas neste mês, mas nenhuma fatura lançada na categoria <b>' + h(cat) + '</b>. Use <b>+ Lançar Fatura</b>.</div></div>'
+          : (x.aVista < -0.005
+            ? '<div class="alert" style="margin-top:12px"><span class="ic">⚠</span><div>A fatura lançada é <b>menor</b> que o parcelado do mês — confira o valor da fatura ou o cadastro das parcelas.</div></div>'
+            : '');
         return '<div class="card"><h3>' + h(c) + ' · ' + E.mesLabel(st.mes) + '</h3>' +
           '<div style="display:flex;gap:22px;flex-wrap:wrap">' +
-          '<div><div class="lb" style="font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.07em">Fatura</div><div class="num" style="font-size:22px;font-weight:600">' + E.brl(x.fatura) + '</div></div>' +
+          '<div><div class="lb" style="font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.07em">Fatura paga</div><div class="num" style="font-size:22px;font-weight:600">' + E.brl(x.fatura) + '</div></div>' +
           '<div><div class="lb" style="font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.07em">Parcelado</div><div class="num" style="font-size:18px;color:' + cores[c] + '">' + E.brl(x.parcelado) + '</div></div>' +
-          '<div><div class="lb" style="font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.07em">À vista + encargos</div><div class="num" style="font-size:18px">' + E.brl(x.aVista) + '</div></div>' +
+          '<div><div class="lb" style="font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.07em">À vista + encargos</div><div class="num ' + (x.aVista < 0 ? 'neg' : '') + '" style="font-size:18px">' + E.brl(x.aVista) + '</div></div>' +
           '</div>' +
-          '<div class="hint">' + abertos.length + ' compromisso(s) em aberto · falta pagar <b>' + E.brl(falta) + '</b></div>' +
+          '<div class="hint">Categoria da fatura: <b>' + h(cat) + '</b> · ' + abertos.length + ' compromisso(s) parcelado(s) em aberto · falta pagar <b>' + E.brl(falta) + '</b></div>' +
+          alerta +
           '</div>';
       }).join('') + '</div>' +
 
@@ -508,6 +547,7 @@
     });
 
     $('#novafatura').onclick = function () { formFatura(); };
+    $('#selmes').onchange = function () { st.mes = this.value; render(); };
   }
 
   /* ================================================ TELA · PARCELAMENTOS === */
@@ -543,7 +583,7 @@
       lst.map(function (x) {
         var p = x.p, s = x.s;
         return '<tr data-id="' + p.id + '">' +
-          '<td><span class="tag ' + (p.cartao === 'Itaú' ? 'itau' : 'carrefour') + '">' + h(p.cartao) + '</span></td>' +
+          '<td><span class="tag itau">' + h(p.cartao) + '</span></td>' +
           '<td>' + h(p.fornecedor) + '</td>' +
           '<td class="c num">' + E.mesLabel(p.mes1) + '</td>' +
           '<td class="c num">' + p.n + 'x</td>' +
@@ -559,7 +599,7 @@
       '<div class="card" style="margin-top:14px"><h3>Parcelas de ' + E.mesLabelLongo(st.mes) + '</h3>' +
       '<div class="tw"><table><thead><tr><th>Cartão</th><th>Fornecedor</th><th class="c">Parcela</th><th class="r">Valor</th></tr></thead><tbody>' +
       (E.parcelasDoMes(db, st.mes).map(function (x) {
-        return '<tr><td><span class="tag ' + (x.cartao === 'Itaú' ? 'itau' : 'carrefour') + '">' + h(x.cartao) + '</span></td><td>' + h(x.fornecedor) + '</td>' +
+        return '<tr><td><span class="tag itau">' + h(x.cartao) + '</span></td><td>' + h(x.fornecedor) + '</td>' +
           '<td class="c num">' + x.parcela + ' de ' + x.de + '</td><td class="r num">' + E.brl(x.valor) + '</td></tr>';
       }).join('') || '<tr><td colspan="4" class="empty">Nenhuma parcela neste mês.</td></tr>') +
       '</tbody><tfoot><tr><td colspan="3">Total</td><td class="r num">' + E.brl(noMes) + '</td></tr></tfoot></table></div></div>';
@@ -615,21 +655,34 @@
 
   function formFatura() {
     var corpo = '<div class="grid" style="grid-template-columns:1fr 1fr;gap:12px">' +
-      '<div class="fld"><label>Cartão</label><select id="f-cart">' + opts(E.cartoes(db), 'Itaú') + '</select></div>' +
+      '<div class="fld"><label>Cartão</label><select id="f-cart">' + opts(E.cartoes(db), E.cartoes(db)[0]) + '</select></div>' +
       '<div class="fld"><label>Mês de fechamento</label><select id="f-mes">' + selMeses(st.mes) + '</select></div>' +
-      '<div class="fld" style="grid-column:1/-1"><label>Valor da fatura (R$)</label><input id="f-val" inputmode="decimal" placeholder="0,00"></div>' +
-      '<div class="hint" style="grid-column:1/-1">Será lançado como pagamento (saída) no último dia do mês, na categoria do cartão.</div></div>';
+      '<div class="fld"><label>Dia do pagamento</label><input type="number" id="f-dia" min="1" max="31" value="' + E.diasNoMes(st.mes) + '"></div>' +
+      '<div class="fld"><label>Valor da fatura (R$)</label><input id="f-val" inputmode="decimal" placeholder="0,00"></div>' +
+      '<div class="hint" style="grid-column:1/-1" id="f-prev"></div></div>';
     var ovl = modal('Lançar fatura de cartão', corpo, function (o) {
       var cart = $('#f-cart', o).value, mes = $('#f-mes', o).value, val = parseVal($('#f-val', o).value);
       if (!val || val <= 0) { toast('Informe um valor maior que zero.', 'err'); return false; }
-      var cat = E.catDoCartao(cart);
+      var cat = E.catDoCartao(db, cart);
       if (db.categorias.despesa.indexOf(cat) < 0) db.categorias.despesa.push(cat);
-      var dias = E.diasNoMes(mes), data = mes + '-' + String(dias).padStart(2, '0');
-      var desc = 'Pagamento fatura ' + cart + ' ' + E.mesLabel(mes);
+      var dia = Math.min(Math.max(1, +$('#f-dia', o).value || E.diasNoMes(mes)), E.diasNoMes(mes));
+      var data = mes + '-' + String(dia).padStart(2, '0');
+      var desc = 'Fatura ' + cart + ' — ' + E.mesLabel(mes);
       db.lancamentos.push({ id: S.novoId('l'), data: data, desc: desc, valor: -val, cat: cat, conta: 'Banco', rec: false });
       S.touch('Lançamento fatura: ' + desc);
-      toast('Fatura lançada');
+      toast('Fatura lançada'); render();
     });
+    var prev = function () {
+      var cart = $('#f-cart', ovl).value, mes = $('#f-mes', ovl).value, val = parseVal($('#f-val', ovl).value);
+      var par = E.totalParcelado(db, mes, cart), jaPago = E.faturaPaga(db, mes, cart);
+      var txt = 'Categoria: <b>' + h(E.catDoCartao(db, cart)) + '</b> · parcelas cadastradas em ' + E.mesLabel(mes) + ': <b>' + E.brl(par) + '</b>';
+      if (jaPago) txt += '<br><span style="color:#f3ca6d">Já existe ' + E.brl(jaPago) + ' lançado neste mês — este valor será somado.</span>';
+      if (val > 0) txt += '<br>À vista + encargos resultante: <b>' + E.brl(E.r2(jaPago + val - par)) + '</b>';
+      $('#f-prev', ovl).innerHTML = txt;
+      $('#f-dia', ovl).max = E.diasNoMes(mes);
+    };
+    ['#f-cart', '#f-mes', '#f-val'].forEach(function (s) { $(s, ovl).oninput = prev; $(s, ovl).onchange = prev; });
+    prev();
   }
 
   /* ========================================================= TELA · FLUXO === */
@@ -755,9 +808,17 @@
 
   /* ========================================================= TELA · METAS === */
   function viewMetas(root) {
-    var serie = E.saldoDevedorSerie(db);
+    var serieEp = E.saldoDevedorPorEmprestimo(db);
     var totQuitar = db.emprestimos.reduce(function (a, ep) { return a + E.emprestimo(db, ep).quitarHoje; }, 0);
     var totNominal = db.emprestimos.reduce(function (a, ep) { return a + E.emprestimo(db, ep).nominalRestante; }, 0);
+    var totAmort = db.emprestimos.reduce(function (a, ep) { return a + E.emprestimo(db, ep).amortizado; }, 0);
+    var nAmort = db.emprestimos.reduce(function (a, ep) { return a + (ep.amortizacoes || []).length; }, 0);
+    var totParcAbat = db.emprestimos.reduce(function (a, ep) {
+      return a + (ep.amortizacoes || []).reduce(function (b, z) { return b + (z.parcelas || []).length; }, 0);
+    }, 0);
+    var PALEP = ['var(--s1)', 'var(--s4)', 'var(--s3)', 'var(--s7)', 'var(--s6)'];
+    var legenda = serieEp.linhas.map(function (l, i) { return { nome: l.cod, cor: PALEP[i % PALEP.length] }; })
+      .concat([{ nome: 'Total', cor: 'var(--s5)' }]);
 
     root.innerHTML = topo('Metas & dívidas',
       'Taxa real deduzida das parcelas; o valor justo de quitação é o valor presente do que falta.',
@@ -783,35 +844,85 @@
       kpi('Saldo devedor hoje', E.brl(totQuitar), 'Valor presente em ' + E.mesLabel(db.meta.mesRef), 'acc-out') +
       kpi('A pagar nominal', E.brl(totNominal), 'Soma das parcelas restantes', 'acc-am') +
       kpi('Economia se quitar', E.brl(totNominal - totQuitar), 'Juros que deixam de correr', 'acc-in') +
+      kpi('Amortizado até hoje', E.brl(totAmort), nAmort + ' amortização(ões) · ' + totParcAbat + ' parcela(s) abatida(s)', 'acc-in') +
       '</div>' +
 
-      '<div class="card" style="margin-bottom:14px"><h3>Empréstimos consignados</h3><div class="tw"><table><thead><tr>' +
+      '<div class="card" style="margin-bottom:14px"><h3>Demonstrativo de créditos consignados</h3><div class="tw"><table class="tight"><thead><tr>' +
       '<th>Cód.</th><th>Descrição</th><th class="r">Original</th><th class="c">Parc.</th><th class="r">Parcela</th>' +
-      '<th class="r">Total</th><th class="r">Taxa a.m.</th><th class="r">Taxa a.a.</th><th class="c">Pagas</th>' +
-      '<th class="r">Nominal</th><th class="r">Quitar hoje</th><th class="r">Economia</th><th></th></tr></thead><tbody>' +
+      '<th class="r">Total</th><th class="r">Taxa<br>a.m. · a.a.</th><th class="c">Pagas</th>' +
+      '<th class="r">Nominal</th><th class="r">Quitar hoje</th><th class="r">Economia</th>' +
+      '<th class="r">Saldo devedor</th><th></th></tr></thead><tbody>' +
       (db.emprestimos.length ? db.emprestimos.map(function (ep, i) {
         var x = E.emprestimo(db, ep);
-        return '<tr data-i="' + i + '"><td class="num">' + h(ep.cod) + '</td><td>' + h(ep.desc) + '</td>' +
+        var pt = h(ep.desc).split('—');
+        return '<tr data-i="' + i + '"><td class="num">' + h(ep.cod) + '</td>' +
+          '<td><b>' + pt[0].trim() + '</b>' + (pt[1] ? '<br><span style="color:var(--ink-3);font-size:11px">' + pt.slice(1).join('—').trim() + '</span>' : '') + '</td>' +
           '<td class="r num">' + E.brl(ep.principal) + '</td><td class="c num">' + ep.n + '</td>' +
           '<td class="r num">' + E.brl(ep.parcela) + '</td><td class="r num">' + E.brl(x.totalContrato) + '</td>' +
-          '<td class="r num">' + (x.taxaMes * 100).toFixed(3).replace('.', ',') + '%</td>' +
-          '<td class="r num">' + (x.taxaAno * 100).toFixed(2).replace('.', ',') + '%</td>' +
-          '<td class="c num">' + x.pagas + '/' + ep.n + '</td>' +
+          '<td class="r num">' + (x.taxaMes * 100).toFixed(3).replace('.', ',') + '%<br>' +
+          '<span style="color:var(--ink-3)">' + (x.taxaAno * 100).toFixed(2).replace('.', ',') + '%</span></td>' +
+          '<td class="c num">' + x.pagas + '/' + ep.n + (x.antecipadas ? '<br><span class="tag am" title="parcelas antecipadas por amortização">' + x.antecipadas + ' ant.</span>' : '') + '</td>' +
           '<td class="r num">' + E.brl(x.nominalRestante) + '</td>' +
           '<td class="r num"><b>' + E.brl(x.quitarHoje) + '</b></td>' +
           '<td class="r"><span class="num pos">' + E.brl(x.economia) + '</span></td>' +
-          '<td class="c actions" style="width:74px"><button class="iconbtn" data-eped>✎</button><button class="iconbtn del" data-epdl>✕</button></td></tr>';
-      }).join('') : '<tr><td colspan="13" class="empty">Nenhum empréstimo cadastrado.</td></tr>') +
+          '<td class="r num"><b>' + E.brl(x.saldoDevedor) + '</b></td>' +
+          '<td class="c actions" style="width:66px"><button class="iconbtn" data-eped>✎</button><button class="iconbtn del" data-epdl>✕</button></td></tr>';
+      }).join('') +
+        '<tr style="border-top:2px solid var(--stroke-hard)"><td colspan="8"><b>TOTAL</b></td>' +
+        '<td class="r num"><b>' + E.brl(totNominal) + '</b></td>' +
+        '<td class="r num"><b>' + E.brl(totQuitar) + '</b></td>' +
+        '<td class="r num pos"><b>' + E.brl(totNominal - totQuitar) + '</b></td>' +
+        '<td class="r num"><b>' + E.brl(totQuitar) + '</b></td><td></td></tr>'
+        : '<tr><td colspan="13" class="empty">Nenhum empréstimo cadastrado.</td></tr>') +
       '</tbody></table></div>' +
-      '<div class="alert" style="margin-top:12px"><span class="ic">⚠</span><div>“A pagar nominal” inclui juros que ainda não correram. O valor justo para quitar antecipadamente é o <b>valor presente</b>. Confirme o número oficial com o banco antes de fechar qualquer quitação.</div></div>' +
+      '<div class="alert info" style="margin-top:12px"><span class="ic">ⓘ</span><div>' +
+      '<b>Como ler o quadro.</b> <b>Nominal</b> é a soma bruta das parcelas que ainda faltam ' +
+      '(valor da parcela × parcelas em aberto). Inclui os juros de todos os meses futuros, que <i>ainda não correram</i> — ' +
+      'é o quanto sai do bolso se o contrato seguir até o fim, e nunca o valor de quitação. ' +
+      '<b>Quitar hoje</b> é o valor presente dessas mesmas parcelas: cada uma descontada pela taxa do contrato até a data em ' +
+      'que venceria. <b>Saldo devedor</b> é esse mesmo número visto pelo lado da dívida — em contrato de parcela fixa, ' +
+      'o saldo devedor de hoje <i>é</i> o valor presente do que falta; por isso as duas colunas coincidem. ' +
+      '<b>Economia</b> é a diferença entre nominal e quitação: os juros que deixam de correr se você liquidar agora. ' +
+      'A taxa é deduzida das próprias parcelas (TIR), então pode diferir em alguns reais do extrato do banco — ' +
+      'confirme o número oficial antes de fechar qualquer quitação.</div></div>' +
       '</div>' +
 
-      '<div class="card" style="margin-bottom:14px"><h3>Amortizações do mês <span class="tag">' + E.mesLabel(st.mes) + '</span></h3>' +
-      '<div class="inline" style="margin-bottom:12px"><button class="btn pri" id="nova-amort">+ Registrar Amortização</button></div>' +
+      /* ---------- resumo por empréstimo ---------- */
+      (db.emprestimos.length ? '<div class="card" style="margin-bottom:14px"><h3>Resumo e evolução de cada contrato</h3>' +
+        '<div class="grid g-3">' + db.emprestimos.map(function (ep, i) {
+          var x = E.emprestimo(db, ep);
+          var amorts = (ep.amortizacoes || []).slice().sort(function (a, b) { return a.data < b.data ? -1 : 1; });
+          var nParc = amorts.reduce(function (a, z) { return a + (z.parcelas || []).length; }, 0);
+          var proximaQuit = x.quitado ? '—' : (x.ultimaAberta ? E.mesLabel(E.addMes(ep.mes1, x.ultimaAberta - 1)) : '—');
+          return '<div style="padding:14px;border:1px solid var(--stroke);border-radius:12px;background:rgba(0,0,0,.16)">' +
+            '<div style="display:flex;justify-content:space-between;gap:8px;align-items:start">' +
+            '<b style="font-size:14px">' + h(ep.cod) + '</b>' +
+            (x.quitado ? '<span class="tag ok">quitado</span>' : '<span class="tag run">em curso</span>') + '</div>' +
+            '<div style="font-size:11.5px;color:var(--ink-3);margin:2px 0 10px">' + h(ep.desc) + '</div>' +
+            '<div class="num" style="font-size:20px">' + E.brl(x.saldoDevedor) + '</div>' +
+            '<div style="font-size:11.5px;color:var(--ink-3);margin-bottom:9px">saldo devedor em ' + E.mesLabel(db.meta.mesRef) + '</div>' +
+            '<div class="bar-track"><div class="bar-fill" style="width:' + (x.pctPago * 100).toFixed(1) + '%"></div></div>' +
+            '<div style="font-size:11.5px;color:var(--ink-2);margin-top:7px">' + E.pct(x.pctPago) + ' do contrato liquidado</div>' +
+            '<table style="margin-top:10px;font-size:12px"><tbody>' +
+            '<tr><td style="color:var(--ink-3)">Parcelas pelo calendário</td><td class="r num">' + x.pagasCalendario + '</td></tr>' +
+            '<tr><td style="color:var(--ink-3)">Parcelas antecipadas</td><td class="r num">' + x.antecipadas + '</td></tr>' +
+            '<tr><td style="color:var(--ink-3)">Parcelas em aberto</td><td class="r num">' + x.restantes +
+            (x.restantes ? ' <span style="color:var(--ink-3)">(' + x.primeiraAberta + '–' + x.ultimaAberta + ')</span>' : '') + '</td></tr>' +
+            '<tr><td style="color:var(--ink-3)">Amortizado (desembolso)</td><td class="r num">' + E.brl(x.amortizado) + '</td></tr>' +
+            '<tr><td style="color:var(--ink-3)">Amortizações</td><td class="r num">' + amorts.length + ' · ' + nParc + ' parc.</td></tr>' +
+            '<tr><td style="color:var(--ink-3)">Última parcela em aberto</td><td class="r num">' + proximaQuit + '</td></tr>' +
+            '<tr><td style="color:var(--ink-3)">Fim original do contrato</td><td class="r num">' + E.mesLabel(x.ultima) + '</td></tr>' +
+            '</tbody></table></div>';
+        }).join('') + '</div></div>' : '') +
+
+      '<div class="card" style="margin-bottom:14px"><h3>Amortizações registradas <span class="tag">' + nAmort + '</span></h3>' +
+      '<div class="inline" style="margin-bottom:12px"><button class="btn pri" id="nova-amort">+ Registrar amortização</button>' +
+      '<div class="spacer"></div><div class="hint" style="margin:0">A amortização paga sempre as <b>últimas</b> parcelas do contrato, de trás para a frente.</div></div>' +
       '<div id="lista-amort"></div></div>' +
 
       '<div class="card"><h3>Evolução do saldo devedor</h3>' +
-      C.legenda([{ nome: 'Saldo devedor (valor presente)', cor: 'var(--s5)' }]) + '<div id="ch-dv"></div></div>';
+      '<div class="hint" style="margin:0 0 8px">Uma linha por contrato e a linha grossa do total. Os rótulos mostram o saldo em pontos selecionados.</div>' +
+      C.legenda(legenda) + '<div id="ch-dv"></div></div>';
 
     $('#nmeta').onclick = function () { formMeta(-1); };
     $('#nemp').onclick = function () { formEmprestimo(-1); };
@@ -830,41 +941,69 @@
       };
     });
 
-    // Preencher lista de amortizações do mês
+    /* ---------- lista completa de amortizações ---------- */
     var amortListaEl = $('#lista-amort');
-    var mesAmort = st.mes || db.meta.mesRef;
     var linhasAmort = [];
     db.emprestimos.forEach(function (ep, i) {
       (ep.amortizacoes || []).forEach(function (a, ai) {
-        if (a.data.slice(0, 7) === mesAmort) {
-          linhasAmort.push('<tr data-i="' + i + '" data-ai="' + ai + '"><td>' + h(ep.desc) + '</td><td class="c num">' + a.data.slice(8) + '</td><td class="r num">' + E.brl(a.valor) + '</td><td>' + h(a.descricao || '—') + '</td><td class="c actions"><button class="iconbtn" data-aed>✎</button><button class="iconbtn del" data-adl>✕</button></td></tr>');
-        }
+        linhasAmort.push({ ep: ep, ei: i, ai: ai, a: a });
       });
     });
+    linhasAmort.sort(function (x, y) { return x.a.data < y.a.data ? 1 : x.a.data > y.a.data ? -1 : 0; });
     if (linhasAmort.length) {
-      amortListaEl.innerHTML = '<div class="tw"><table><thead><tr><th>Empréstimo</th><th class="c">Data</th><th class="r">Valor</th><th>Descrição</th><th class="c">Ações</th></tr></thead><tbody>' + linhasAmort.join('') + '</tbody></table></div>';
+      amortListaEl.innerHTML = '<div class="tw"><table><thead><tr>' +
+        '<th class="c">Data</th><th>Contrato</th><th class="r">Valor pago</th>' +
+        '<th class="c">Qtd.</th><th>Parcelas abatidas</th><th>Observação</th><th></th></tr></thead><tbody>' +
+        linhasAmort.map(function (r) {
+          var ps = (r.a.parcelas || []).slice().sort(function (p, q) { return p - q; });
+          return '<tr data-i="' + r.ei + '" data-ai="' + r.ai + '">' +
+            '<td class="c num">' + E.dataLabel(r.a.data) + '/' + r.a.data.slice(2, 4) + '</td>' +
+            '<td><b>' + h(r.ep.cod) + '</b> <span style="color:var(--ink-3)">' + h(r.ep.desc) + '</span></td>' +
+            '<td class="r num">' + E.brl(r.a.valor) + '</td>' +
+            '<td class="c num">' + ps.length + '</td>' +
+            '<td class="num" style="font-size:12px">' + (ps.length ? faixaParcelas(ps) : '<span style="color:var(--ink-3)">—</span>') + '</td>' +
+            '<td style="color:var(--ink-2);font-size:12.5px">' + h(r.a.descricao || '—') + '</td>' +
+            '<td class="c actions" style="width:74px"><button class="iconbtn" data-aed>✎</button><button class="iconbtn del" data-adl>✕</button></td></tr>';
+        }).join('') +
+        '<tr style="border-top:2px solid var(--stroke-hard)"><td colspan="2"><b>TOTAL</b></td>' +
+        '<td class="r num"><b>' + E.brl(totAmort) + '</b></td>' +
+        '<td class="c num"><b>' + totParcAbat + '</b></td><td colspan="3"></td></tr>' +
+        '</tbody></table></div>';
       $$('[data-aed]', amortListaEl).forEach(function (b) { b.onclick = function () { var tr = b.closest('tr'); formAmortizacao(+tr.dataset.i, +tr.dataset.ai); }; });
       $$('[data-adl]', amortListaEl).forEach(function (b) {
         b.onclick = function () {
-          var tr = b.closest('tr'), ei = +tr.dataset.i, ai = +tr.dataset.ai, ep = db.emprestimos[ei], a = ep.amortizacoes[ai];
-          confirmar('Remover amortização de ' + E.brl(a.valor) + ' em ' + a.data + '?', function () {
+          var tr = b.closest('tr'), ei = +tr.dataset.i, ai = +tr.dataset.ai, a = db.emprestimos[ei].amortizacoes[ai];
+          confirmar('Remover a amortização de ' + E.brl(a.valor) + ' em ' + E.dataLabel(a.data) + '? O lançamento correspondente também sai do fluxo de caixa.', function () {
+            if (a.lancId) db.lancamentos = db.lancamentos.filter(function (l) { return l.id !== a.lancId; });
             db.emprestimos[ei].amortizacoes.splice(ai, 1);
-            db.lancamentos = db.lancamentos.filter(function (l) { return !(l.desc.indexOf('Amortização') >= 0 && l.data === a.data && Math.abs(l.valor + a.valor) < 0.01); });
-            S.touch('Removeu amortização'); render();
+            S.touch('Removeu amortização'); toast('Amortização removida'); render();
           });
         };
       });
     } else {
-      amortListaEl.innerHTML = '<div class="empty">Nenhuma amortização neste mês.</div>';
+      amortListaEl.innerHTML = '<div class="empty">Nenhuma amortização registrada.</div>';
     }
     $('#nova-amort').onclick = function () { formAmortizacao(-1, -1); };
 
+    /* ---------- gráfico: uma linha por contrato + total ---------- */
     C.linha($('#ch-dv'), {
-      labels: serie.map(function (s) { return E.mesLabel(s.mes); }),
-      titulos: serie.map(function (s) { return E.mesLabelLongo(s.mes); }),
-      series: [{ nome: 'Saldo devedor', cor: 'var(--s5)', dados: serie.map(function (s) { return s.saldo; }) }],
-      area: true, altura: 220
+      labels: serieEp.meses.map(function (m) { return E.mesLabel(m); }),
+      titulos: serieEp.meses.map(function (m) { return E.mesLabelLongo(m); }),
+      series: serieEp.linhas.map(function (l, i) {
+        return { nome: l.cod, cor: PALEP[i % PALEP.length], dados: l.dados, espessura: 1.7, rotular: false };
+      }).concat([{ nome: 'Total', cor: 'var(--s5)', dados: serieEp.total, espessura: 3, rotular: true }]),
+      rotulos: true, altura: 300
     });
+  }
+  /** "14–21, 30, 40–72" a partir de uma lista de números */
+  function faixaParcelas(ps) {
+    var out = [], ini = ps[0], ant = ps[0];
+    for (var i = 1; i <= ps.length; i++) {
+      if (i < ps.length && ps[i] === ant + 1) { ant = ps[i]; continue; }
+      out.push(ini === ant ? String(ini) : ini + '–' + ant);
+      ini = ant = ps[i];
+    }
+    return out.join(', ');
   }
   function formMeta(i) {
     var m = i >= 0 ? db.metas[i] : null;
@@ -914,33 +1053,141 @@
     prev();
   }
   function formAmortizacao(ei, ai) {
-    var ep = ei >= 0 ? db.emprestimos[ei] : null;
-    var a = ai >= 0 && ep ? ep.amortizacoes[ai] : null;
-    var corpo = '<div class="grid" style="grid-template-columns:1fr 1fr;gap:12px">' +
-      (ei < 0 ? '<div class="fld" style="grid-column:1/-1"><label>Empréstimo</label><select id="a-ep">' +
-        opts(db.emprestimos.map(function (e, i) { return { v: String(i), l: e.desc }; }), '') +
-        '</select></div>' : '') +
-      '<div class="fld"><label>Data da amortização</label><input type="date" id="a-d" value="' + (a ? a.data : E.hoje()) + '"></div>' +
-      '<div class="fld"><label>Valor (R$)</label><input id="a-v" inputmode="decimal" value="' + (a ? a.valor.toFixed(2).replace('.', ',') : '') + '"></div>' +
-      '<div class="fld" style="grid-column:1/-1"><label>Descrição (opcional)</label><input id="a-desc" value="' + (a ? h(a.descricao || '') : 'Amortização extra') + '"></div></div>';
-    modal(a ? 'Editar amortização' : 'Registrar amortização', corpo, function (o) {
-      var eix = ei >= 0 ? ei : +$('#a-ep', o).value; if (eix < 0) { toast('Selecione um empréstimo.', 'err'); return false; }
-      var data = $('#a-d', o).value, val = parseVal($('#a-v', o).value), desc = $('#a-desc', o).value.trim();
-      if (!data || !val || val <= 0) { toast('Preencha data e valor.', 'err'); return false; }
+    if (!db.emprestimos.length) { toast('Cadastre um empréstimo primeiro.', 'err'); return; }
+    var epIni = ei >= 0 ? ei : 0;
+    var a = (ei >= 0 && ai >= 0) ? db.emprestimos[ei].amortizacoes[ai] : null;
+    var sel = {};                                  // parcelas marcadas nesta amortização
+    if (a) (a.parcelas || []).forEach(function (p) { sel[p] = 1; });
+
+    var corpo =
+      '<div class="grid" style="grid-template-columns:1fr 1fr;gap:12px">' +
+      '<div class="fld" style="grid-column:1/-1"><label>Contrato</label><select id="a-ep"' + (a ? ' disabled' : '') + '>' +
+      opts(db.emprestimos.map(function (e, i) { return { v: String(i), l: e.cod + ' — ' + e.desc }; }), String(epIni)) +
+      '</select></div>' +
+      '<div class="fld"><label>Data do pagamento</label><input type="date" id="a-d" value="' + (a ? a.data : E.hoje()) + '"></div>' +
+      '<div class="fld"><label>Quantas parcelas abater</label><input type="number" id="a-q" min="0" step="1" value="' + (a ? (a.parcelas || []).length : 0) + '"></div>' +
+      '</div>' +
+      '<div class="hint" style="margin:12px 0 6px">A amortização quita as <b>últimas</b> parcelas do contrato, de trás para a frente. ' +
+      'Escolha a quantidade acima ou clique numa parcela abaixo — tudo dela até o fim do contrato entra no abatimento.</div>' +
+      '<div id="a-grade" class="parc-grid"></div>' +
+      '<div id="a-resumo" class="hint" style="margin-top:10px"></div>' +
+      '<div class="grid" style="grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">' +
+      '<div class="fld"><label>Valor efetivamente pago (R$)</label><input id="a-v" inputmode="decimal" value="' + (a ? a.valor.toFixed(2).replace('.', ',') : '') + '"></div>' +
+      '<div class="fld"><label>Observação</label><input id="a-desc" value="' + h(a ? (a.descricao || '') : 'Amortização extra') + '"></div>' +
+      '</div>' +
+      '<div class="hint" style="margin-top:8px">O valor sugerido é o valor presente das parcelas escolhidas. ' +
+      'Se o banco cobrou outro número, digite o valor do comprovante — ele é o que entra no fluxo de caixa.</div>';
+
+    var ovl = modal(a ? 'Editar amortização' : 'Registrar amortização', corpo, function (o) {
+      var eix = +$('#a-ep', o).value;
       var ep2 = db.emprestimos[eix];
+      var data = $('#a-d', o).value, val = parseVal($('#a-v', o).value), desc = $('#a-desc', o).value.trim();
+      var parcelas = Object.keys(sel).map(Number).sort(function (x, y) { return x - y; });
+      if (!data) { toast('Informe a data do pagamento.', 'err'); return false; }
+      if (!val || val <= 0) { toast('Informe o valor pago.', 'err'); return false; }
+      if (!parcelas.length) { toast('Selecione quantas parcelas foram abatidas.', 'err'); return false; }
+
       if (!ep2.amortizacoes) ep2.amortizacoes = [];
-      var obj = { data: data, valor: E.r2(val), descricao: desc };
-      if (a) {
-        Object.keys(obj).forEach(function (k) { a[k] = obj[k]; });
-        db.lancamentos = db.lancamentos.filter(function (l) { return !(l.desc.indexOf('Amortização') >= 0 && l.data.slice(0, 7) === data.slice(0, 7) && Math.abs(l.valor + val) < 0.01); });
-      } else {
-        ep2.amortizacoes.push(obj);
-      }
+      // o campo legado deixa de valer assim que existe amortização detalhada
+      if (ep2.antecipadas) ep2.antecipadas = 0;
+
       var cat = 'Amortização ' + ep2.cod;
       if (db.categorias.despesa.indexOf(cat) < 0) db.categorias.despesa.push(cat);
-      db.lancamentos.push({ id: S.novoId('l'), data: data, desc: 'Amortização ' + ep2.desc, valor: -val, cat: cat, conta: 'Banco', rec: false });
-      S.touch('Amortização salva: ' + desc); toast('Amortização registrada'); render();
-    });
+      var rotulo = 'Amortização ' + ep2.cod + (parcelas.length ? ' (parcelas ' + faixaParcelas(parcelas) + ')' : '');
+
+      if (a) {
+        a.data = data; a.valor = E.r2(val); a.descricao = desc; a.parcelas = parcelas;
+        var lan = db.lancamentos.filter(function (l) { return l.id === a.lancId; })[0];
+        if (lan) { lan.data = data; lan.valor = -E.r2(val); lan.desc = rotulo; lan.cat = cat; }
+        else {
+          var nid = S.novoId('l');
+          db.lancamentos.push({ id: nid, data: data, desc: rotulo, valor: -E.r2(val), cat: cat, conta: 'Banco', rec: false });
+          a.lancId = nid;
+        }
+      } else {
+        var id2 = S.novoId('l');
+        db.lancamentos.push({ id: id2, data: data, desc: rotulo, valor: -E.r2(val), cat: cat, conta: 'Banco', rec: false });
+        ep2.amortizacoes.push({ data: data, valor: E.r2(val), descricao: desc, parcelas: parcelas, lancId: id2 });
+      }
+      S.touch('Amortização ' + ep2.cod); toast('Amortização registrada no fluxo de caixa'); render();
+    }, 'Salvar');
+
+    /* ---- estado e redesenho da grade de parcelas ---- */
+    function epAtual() { return db.emprestimos[+$('#a-ep', ovl).value]; }
+    function mesRefAmort() {
+      var d = $('#a-d', ovl).value;
+      return d ? d.slice(0, 7) : db.meta.mesRef;
+    }
+    /** parcelas disponíveis para abater: em aberto no mês da amortização (as desta edição voltam a contar) */
+    function disponiveis() {
+      var ep2 = epAtual(), m = mesRefAmort();
+      var k = E.parcelasCalendario(ep2, m);
+      var outras = {};
+      (ep2.amortizacoes || []).forEach(function (z) {
+        if (a && z === a) return;
+        if (z.data.slice(0, 7) > m) return;
+        (z.parcelas || []).forEach(function (p) { outras[p] = 1; });
+      });
+      var out = [];
+      for (var j = ep2.n; j >= 1; j--) {
+        out.push({ n: j, mes: E.addMes(ep2.mes1, j - 1), estado: j <= k ? 'calendario' : (outras[j] ? 'outra' : 'livre') });
+      }
+      return out;
+    }
+    function aplicarQtd(q) {
+      var livres = disponiveis().filter(function (p) { return p.estado === 'livre'; }); // já em ordem decrescente
+      sel = {};
+      livres.slice(0, Math.max(0, q)).forEach(function (p) { sel[p.n] = 1; });
+      desenhar();
+    }
+    function desenhar() {
+      var ep2 = epAtual(), m = mesRefAmort();
+      var lst = disponiveis();
+      var i = E.taxaImplicita(ep2.principal, ep2.parcela, ep2.n);
+      $('#a-grade', ovl).innerHTML = lst.map(function (p) {
+        var cls = p.estado === 'calendario' ? 'pc pago' : p.estado === 'outra' ? 'pc ant' : (sel[p.n] ? 'pc on' : 'pc');
+        var tit = p.estado === 'calendario' ? 'parcela já paga pelo calendário ('
+          : p.estado === 'outra' ? 'já antecipada em outra amortização (' : 'vence em (';
+        return '<button type="button" class="' + cls + '" data-p="' + p.n + '" title="' + tit + E.mesLabel(p.mes) + ')">' +
+          p.n + '<i>' + E.mesLabel(p.mes) + '</i></button>';
+      }).join('');
+      $$('.pc', ovl).forEach(function (b) {
+        b.onclick = function () {
+          var n = +b.dataset.p, livres = lst.filter(function (p) { return p.estado === 'livre'; });
+          if (livres.every(function (p) { return p.n !== n; })) return;
+          var alvo = livres.filter(function (p) { return p.n >= n; });
+          var jaTodas = alvo.every(function (p) { return sel[p.n]; }) && Object.keys(sel).length === alvo.length;
+          sel = {};
+          if (!jaTodas) alvo.forEach(function (p) { sel[p.n] = 1; });
+          $('#a-q', ovl).value = Object.keys(sel).length;
+          desenhar();
+        };
+      });
+
+      var ps = Object.keys(sel).map(Number).sort(function (x, y) { return x - y; });
+      var nominal = E.r2(ps.length * ep2.parcela);
+      var pv = 0;
+      ps.forEach(function (n) {
+        var t = E.diffMes(m, E.addMes(ep2.mes1, n - 1)); if (t < 1) t = 1;
+        pv += ep2.parcela / Math.pow(1 + i, t);
+      });
+      pv = E.r2(pv);
+      var abertasDepois = lst.filter(function (p) { return p.estado === 'livre' && !sel[p.n]; }).length;
+      $('#a-resumo', ovl).innerHTML = ps.length
+        ? '<b>' + ps.length + ' parcela(s)</b> — nº ' + faixaParcelas(ps) + ' · nominal ' + E.brl(nominal) +
+        ' · valor presente <b>' + E.brl(pv) + '</b> · desconto ' + E.brl(nominal - pv) +
+        '<br>Depois desta amortização restam <b>' + abertasDepois + '</b> parcela(s) em aberto no contrato.'
+        : '<span style="color:var(--ink-3)">Nenhuma parcela selecionada.</span>';
+      var campo = $('#a-v', ovl);
+      if (!campo.dataset.tocado && ps.length) campo.value = pv.toFixed(2).replace('.', ',');
+    }
+
+    $('#a-q', ovl).oninput = function () { aplicarQtd(+this.value || 0); };
+    $('#a-ep', ovl).onchange = function () { sel = {}; $('#a-q', ovl).value = 0; desenhar(); };
+    $('#a-d', ovl).onchange = desenhar;
+    $('#a-v', ovl).oninput = function () { this.dataset.tocado = '1'; };
+    if (a) $('#a-v', ovl).dataset.tocado = '1';
+    desenhar();
   }
 
   /* ===================================================== TELA · AUDITORIA === */

@@ -6,7 +6,7 @@
    ========================================================================== */
 'use strict';
 
-var CACHE = 'fin-sueli-shell-v1';
+var CACHE = 'fin-sueli-shell-v2';
 var ARQUIVOS = [
   '/',
   '/index.html',
