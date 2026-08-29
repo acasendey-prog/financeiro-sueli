@@ -271,3 +271,48 @@ a{color:inherit;text-decoration:none}
 @media (prefers-reduced-motion:reduce){
   *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 }
+
+/* ------------------------------------------------------ tela de entrada --- */
+/* Uma coluna estreita e centrada: é a única tela do app onde a pessoa não
+   está lendo o bairro, está provando quem é. Nada mais compete por atenção. */
+.entrada{
+  min-height:100vh;display:flex;align-items:flex-start;justify-content:center;
+  padding:clamp(20px,7vh,64px) 20px 48px;
+}
+.entrada-cartao{width:100%;max-width:26rem}
+.entrada-marca{display:flex;align-items:center;gap:10px;margin-bottom:22px}
+.entrada-marca b{font-size:22px;font-weight:700;letter-spacing:-.02em;display:block;line-height:1.15}
+.entrada-marca .lugar{
+  display:block;font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ink-3);
+}
+.entrada-marca .tema{margin-left:auto}
+.entrada-titulo{font-size:19px;font-weight:700;letter-spacing:-.015em;margin-bottom:8px}
+.entrada-texto{font-size:15.5px;color:var(--ink-2);margin-bottom:20px}
+.entrada .abas{margin-bottom:22px;border-bottom:1px solid var(--rule)}
+.entrada-form{display:block}
+.entrada-nota{
+  font-size:13px;line-height:1.55;color:var(--ink-3);margin-top:18px;
+  padding-top:16px;border-top:1px solid var(--rule);
+}
+.ficha .entrada-nota{margin:-4px 0 0}
+
+.bt.largo{width:100%;min-height:50px;margin-top:6px;font-size:15.5px}
+.dupla{display:flex;gap:10px}
+.dupla .campo{flex:1;min-width:0}
+.dupla .campo.estreito{flex:0 0 6.5rem}
+
+/* botão da conta: a inicial do nome, do tamanho de um alvo de dedo */
+.conta{
+  flex:none;display:flex;align-items:center;justify-content:center;align-self:center;
+  width:34px;height:34px;margin-right:-2px;border-radius:99px;
+  background:var(--ink);color:var(--paper);font-size:14px;font-weight:700;
+}
+.conta:hover{opacity:.85}
+
+.dados{display:grid;grid-template-columns:auto 1fr;gap:8px 16px;margin-bottom:18px}
+.dados dt{
+  font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink-3);padding-top:3px;
+}
+.dados dd{font-size:15.5px;overflow-wrap:anywhere}

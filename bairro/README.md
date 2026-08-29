@@ -6,6 +6,18 @@ de graça na Netlify e instalável na tela inicial do celular.
 
 Fica em `/bairro/` do mesmo site — não mexe em nada do app financeiro.
 
+**O app é fechado: sem conta, não se vê nada.** O morador se cadastra com
+nome, celular, endereço e e-mail, confirma o e-mail por um link e entra com
+e-mail e senha. A sessão dura 90 dias, para não pedir senha toda semana.
+
+> **Dados pessoais.** Nome, celular e endereço juntos identificam a pessoa e
+> onde ela mora. Isso é tratamento de dado pessoal sob a LGPD e a associação
+> passa a ser responsável por ele: precisa de consentimento (o app pede, no
+> cadastro), de finalidade declarada (identificar quem é do bairro) e de um
+> caminho para exclusão a pedido. Quem administrar o site consegue ler tudo
+> isso no painel do Netlify Blobs — trate esse acesso como se fosse a lista de
+> endereços do bairro impressa, porque é.
+
 São dois espaços, com regras de escrita diferentes:
 
 | Aba | Quem publica | Para quê |
@@ -37,6 +49,23 @@ São dois espaços, com regras de escrita diferentes:
 - **Fundo claro, escuro ou automático** — botão no canto do cabeçalho, três
   estados em roda. Sem escolha, segue o aparelho; com escolha, ela vale acima
   do aparelho e sobrevive ao recarregar
+
+### Conta do morador
+
+- **Cadastro** com nome completo, e-mail, celular, rua, número e complemento
+- **Confirmação por e-mail**: o cadastro só vale depois de abrir o link. O
+  link serve uma vez só e some depois de usado
+- **Senha** cifrada com scrypt e sal por conta — o servidor nunca guarda a
+  senha, e o hash não volta para o navegador
+- **Sessão assinada** (HMAC) com 90 dias. Não há sessão guardada no servidor:
+  trocar `MURAL_SEGREDO` derruba todo mundo de uma vez
+- **Liberação pela diretoria** (opcional, com `MURAL_APROVACAO=1`): o e-mail
+  confirmado prova que o e-mail existe, não que a pessoa mora no bairro. Com a
+  liberação ligada, a diretoria vê a fila de cadastros na aba da associação,
+  com endereço e telefone, e libera ou recusa
+- A conta alimenta o resto: o aviso já vai assinado com o nome, o WhatsApp vem
+  do cadastro e a rua vem preenchida. O formulário de aviso não pergunta mais
+  nada disso
 
 ### Associação
 
@@ -123,6 +152,22 @@ ligar, na Netlify em *Site settings → Environment variables*:
 | `MURAL_ATIVO` | `1` | liga o backend |
 | `MURAL_CONVITE` | um código qualquer | opcional: só publica no mural quem tiver o código |
 | `MURAL_SENHA_ASSOCIACAO` | o código da diretoria | sem ela ninguém publica no espaço da associação |
+| `MURAL_SEGREDO` | um texto longo e aleatório | assina as sessões; **obrigatório** para o cadastro funcionar |
+| `MURAL_EMAIL_CHAVE` | chave de API da Resend | envia o e-mail de confirmação |
+| `MURAL_EMAIL_DE` | `Vizinhança <ola@seudominio.com.br>` | remetente; o domínio precisa estar verificado na Resend |
+| `MURAL_APROVACAO` | `1` | exige liberação da diretoria além do e-mail |
+
+### Sobre o envio de e-mail
+
+O código fala com a [Resend](https://resend.com), que tem plano gratuito e uma
+API de uma chamada só. Trocar por SendGrid, Mailgun ou SES é mexer em uma
+função (`enviarConfirmacao`, em `netlify/functions/conta.mjs`).
+
+Sem `MURAL_EMAIL_CHAVE` o cadastro continua funcionando, mas o link de
+confirmação só aparece no **log da função** — quem administra o site pega lá e
+entrega à pessoa. É proposital: devolver o link na resposta da API deixaria
+qualquer um confirmar a própria conta, e aí a confirmação não confirmaria
+nada.
 
 No modo demonstração não existe servidor para conferir nada, então o código da
 diretoria é fixo: **`associacao`**. Assim dá para ver a área por dentro sem
@@ -146,11 +191,14 @@ Em ordem de importância:
    mural; no app ainda não tem esse botão. Falta também um jeito de denunciar.
    Para o vizinho comum, a "posse" do aviso é o aparelho — trocou de celular,
    perdeu o controle do que publicou.
-3. **Controle de quem entra.** Sem isso, qualquer pessoa com o link publica.
-   O caminho mais simples é o código de convite distribuído no grupo do bairro.
-4. **Anti-abuso no backend.** Limite de publicações por aparelho por hora e
-   uma confirmação por aparelho validada no servidor (hoje isso é só no
-   navegador, dá para burlar limpando os dados).
+3. **Unificar os dois acessos.** Hoje convivem duas portas: a conta do morador
+   e o código único da diretoria. O certo é a diretoria ser um papel na conta
+   (`papel: 'diretoria'`, que o modelo já carrega), para saber *quem* publicou
+   pela associação e para tirar o acesso de alguém sem trocar a senha de
+   todos.
+4. **Anti-abuso no backend.** Limite de tentativas de senha e de cadastros por
+   IP — hoje não há nenhum, então dá para tentar senha à vontade. Também falta
+   limite de publicações por hora.
 5. **Fotos.** É o que mais falta num aviso de buraco na rua ou de pet perdido.
    Netlify Blobs guarda binário; precisa redimensionar no navegador antes de
    enviar.
@@ -162,9 +210,11 @@ Em ordem de importância:
 | Arquivo | O que faz |
 |---|---|
 | `index.html` | casca da página e registro do service worker |
+| `assets/contas.js` | cadastro, entrada, sessão e a simulação local da conta |
 | `assets/dados.js` | tipos de aviso, prazos, CRUD dos dois espaços, acesso da diretoria, localStorage e conversa com `/api/mural` |
 | `assets/ui.js` | abas, filtros, feed, área da associação e as fichas de publicação |
 | `assets/app.css` | estilo, tema claro/escuro |
 | `sw.js` | cache do esqueleto para abrir offline |
 | `manifest.webmanifest` | dados da instalação na tela inicial |
 | `../netlify/functions/mural.mjs` | backend opcional: mural compartilhado e credencial da diretoria |
+| `../netlify/functions/conta.mjs` | cadastro, confirmação por e-mail, senha, sessão e fila de liberação |

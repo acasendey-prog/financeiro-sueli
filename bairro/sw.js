@@ -12,6 +12,7 @@ var ARQUIVOS = [
   './index.html',
   './manifest.webmanifest',
   './assets/app.css',
+  './assets/contas.js',
   './assets/dados.js',
   './assets/ui.js',
   './icons/icon-192.png',

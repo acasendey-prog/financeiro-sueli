@@ -11,9 +11,11 @@
   'use strict';
 
   var D = global.Dados;
+  var C = global.Contas;
   var app = document.getElementById('app');
 
   var estado = { aba: 'mural', tipo: 'tudo', busca: '' };
+  var entrada = { modo: 'entrar', dados: {} };   // tela de entrada
   var rascunho = null;         // ficha do mural aberta
   var rascunhoOficial = null;  // ficha da associação aberta
 
@@ -56,6 +58,151 @@
     setTimeout(function () { el.remove(); }, 2600);
   }
 
+  /* --------------------------------------------------------- tela de entrada
+     O mural é do bairro, não da internet: sem conta não se vê nada. Quem entra
+     uma vez fica entrado — a sessão dura 90 dias, porque pedir senha toda
+     semana faria o morador desistir do app antes do segundo aviso. */
+  function montarEntrada() {
+    var criar = entrada.modo === 'criar';
+    var d = entrada.dados;
+
+    app.innerHTML =
+      '<div class="entrada">' +
+        '<div class="entrada-cartao">' +
+          '<div class="entrada-marca">' +
+            '<div><b>Vizinhança</b><span class="lugar">Jardim das Acácias</span></div>' +
+            '<button class="tema" id="btTema"></button>' +
+          '</div>' +
+          '<p class="entrada-texto">O mural é só para quem mora no bairro. ' +
+            'Entre com a sua conta ou crie uma.</p>' +
+
+          '<nav class="abas" id="abasEntrada">' +
+            '<button data-modo="entrar"' + (criar ? '' : ' class="on"') + '>Entrar</button>' +
+            '<button data-modo="criar"' + (criar ? ' class="on"' : '') + '>Criar conta</button>' +
+          '</nav>' +
+
+          '<form id="formEntrada" class="entrada-form">' +
+            (criar ? camposCadastro(d) : camposEntrar(d)) +
+            '<div class="erro" id="f-erro" hidden></div>' +
+            '<button type="submit" class="bt forte largo">' +
+              (criar ? 'Criar minha conta' : 'Entrar') + '</button>' +
+          '</form>' +
+
+          (C.erroServidor
+            ? '<p class="entrada-nota"><b>' + esc(C.erroServidor) + '</b> Enquanto isso, ' +
+              'ninguém consegue entrar nem se cadastrar.</p>'
+            : C.modo === 'servidor' ? '' :
+              '<p class="entrada-nota">Modo demonstração: a conta fica só neste aparelho e ' +
+              '<b>nenhum e-mail é enviado de verdade</b>. Com o servidor ligado, o cadastro ' +
+              'só vale depois de confirmar o e-mail.</p>') +
+        '</div>' +
+      '</div>';
+
+    pintarTema();
+    document.getElementById('btTema').addEventListener('click', trocarTema);
+    document.getElementById('abasEntrada').addEventListener('click', function (ev) {
+      var b = ev.target.closest('button[data-modo]');
+      if (!b || b.dataset.modo === entrada.modo) return;
+      guardarEntrada();
+      entrada.modo = b.dataset.modo;
+      montarEntrada();
+    });
+    document.getElementById('formEntrada').addEventListener('submit', enviarEntrada);
+  }
+
+  function camposEntrar(d) {
+    return '<div class="campo"><label for="f-email">E-mail</label>' +
+        '<input id="f-email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" value="' + esc(d.email || '') + '" required></div>' +
+      '<div class="campo"><label for="f-senha">Senha</label>' +
+        '<input id="f-senha" type="password" autocomplete="current-password" required></div>';
+  }
+
+  function camposCadastro(d) {
+    return '<div class="campo"><label for="f-nome">Nome completo</label>' +
+        '<input id="f-nome" maxlength="60" autocomplete="name" value="' + esc(d.nome || '') + '" required></div>' +
+      '<div class="campo"><label for="f-email">E-mail</label>' +
+        '<input id="f-email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" value="' + esc(d.email || '') + '" required>' +
+        '<div class="dica">Você vai receber um link neste e-mail para confirmar o cadastro.</div></div>' +
+      '<div class="campo"><label for="f-celular">Celular</label>' +
+        '<input id="f-celular" inputmode="numeric" maxlength="15" autocomplete="tel" placeholder="11999998888" value="' + esc(d.celular || '') + '" required></div>' +
+      '<div class="dupla">' +
+        '<div class="campo"><label for="f-rua">Rua</label>' +
+          '<input id="f-rua" maxlength="100" autocomplete="address-line1" value="' + esc(d.rua || '') + '" required></div>' +
+        '<div class="campo estreito"><label for="f-numero">Número</label>' +
+          '<input id="f-numero" maxlength="12" value="' + esc(d.numero || '') + '" required></div>' +
+      '</div>' +
+      '<div class="campo"><label for="f-complemento">Complemento</label>' +
+        '<input id="f-complemento" maxlength="60" placeholder="apto, bloco, fundos — opcional" value="' + esc(d.complemento || '') + '"></div>' +
+      '<div class="campo"><label for="f-senha">Senha</label>' +
+        '<input id="f-senha" type="password" autocomplete="new-password" required>' +
+        '<div class="dica">Pelo menos 8 caracteres.</div></div>' +
+      '<div class="campo"><label for="f-senha2">Repita a senha</label>' +
+        '<input id="f-senha2" type="password" autocomplete="new-password" required></div>' +
+      '<label class="caixinha"><input type="checkbox" id="f-consentimento"' + (d.consentimento ? ' checked' : '') + '>' +
+        '<span>Autorizo a associação a guardar meus dados' +
+        '<small>Nome, celular e endereço servem só para identificar quem é do bairro e ' +
+        'ficam com a diretoria. Você pode pedir a exclusão a qualquer momento.</small></span></label>';
+  }
+
+  var CAMPOS_ENTRADA = ['nome', 'email', 'celular', 'rua', 'numero', 'complemento', 'senha', 'senha2', 'consentimento'];
+
+  function guardarEntrada() {
+    CAMPOS_ENTRADA.forEach(function (c) {
+      var el = document.getElementById('f-' + c);
+      if (!el || c === 'senha' || c === 'senha2') return;   // senha não fica em memória
+      entrada.dados[c] = el.type === 'checkbox' ? el.checked : el.value;
+    });
+  }
+
+  function enviarEntrada(ev) {
+    ev.preventDefault();
+    guardarEntrada();
+    var senha = (document.getElementById('f-senha') || {}).value || '';
+
+    if (entrada.modo === 'entrar') {
+      C.entrar(entrada.dados.email, senha).then(function (r) {
+        if (!r.ok) { mostrarErro(r.erro); return; }
+        abrirApp();
+        toast('Bem-vindo, ' + C.primeiroNome() + '.');
+      });
+      return;
+    }
+
+    var d = {};
+    CAMPOS_ENTRADA.forEach(function (c) { d[c] = entrada.dados[c]; });
+    d.senha = senha;
+    d.senha2 = (document.getElementById('f-senha2') || {}).value || '';
+
+    C.cadastrar(d).then(function (r) {
+      if (!r.ok) { mostrarErro(r.erro); return; }
+      if (r.precisaConfirmar) { montarConfirme(d.email, r.emailEnviado); return; }
+      // no modo demonstração não há e-mail: a conta já vale, é só entrar
+      entrada.modo = 'entrar';
+      montarEntrada();
+      toast('Conta criada. Agora entre com ela.');
+    });
+  }
+
+  function montarConfirme(email, enviado) {
+    app.innerHTML =
+      '<div class="entrada"><div class="entrada-cartao">' +
+        '<div class="entrada-marca"><div><b>Vizinhança</b>' +
+          '<span class="lugar">Jardim das Acácias</span></div></div>' +
+        '<h2 class="entrada-titulo">Falta confirmar o e-mail</h2>' +
+        (enviado
+          ? '<p class="entrada-texto">Mandamos uma mensagem para <b>' + esc(email) + '</b>. ' +
+            'Abra o link que está nela e sua conta fica valendo. Se não chegou em alguns ' +
+            'minutos, olhe no spam.</p>'
+          : '<p class="entrada-texto">Sua conta foi criada, mas o envio de e-mail ainda não está ' +
+            'configurado neste site. Peça o link de confirmação a quem administra o app.</p>') +
+        '<button class="bt largo" id="btVoltar">Voltar para a entrada</button>' +
+      '</div></div>';
+    document.getElementById('btVoltar').addEventListener('click', function () {
+      entrada.modo = 'entrar';
+      montarEntrada();
+    });
+  }
+
   /* ------------------------------------------------------------------ casca */
   function montarShell() {
     app.innerHTML =
@@ -64,6 +211,7 @@
           '<b>Vizinhança</b>' +
           '<span class="lugar">Jardim das Acácias</span>' +
           '<button class="tema" id="btTema"></button>' +
+          '<button class="conta" id="btConta" aria-label="Sua conta"></button>' +
         '</div>' +
         '<div class="linha-abas">' +
           '<nav class="abas" id="abas">' +
@@ -89,10 +237,50 @@
       if (D.naAssociacao()) abrirFichaOficial();
     });
     document.getElementById('conteudo').addEventListener('click', aoClicar);
-    document.getElementById('btTema').addEventListener('click', function () {
-      var novo = D.definirTema(D.proximoTema());
-      pintarTema();
-      toast('Fundo ' + NOME_TEMA[novo] + '.');
+    document.getElementById('btTema').addEventListener('click', trocarTema);
+    document.getElementById('btConta').addEventListener('click', abrirConta);
+    document.getElementById('btConta').textContent = C.inicial();
+  }
+
+  function trocarTema() {
+    var novo = D.definirTema(D.proximoTema());
+    pintarTema();
+    toast('Fundo ' + NOME_TEMA[novo] + '.');
+  }
+
+  /* Ficha da conta: quem você é para o bairro, e a porta de saída. */
+  function abrirConta() {
+    var p = C.perfil || {};
+    var e = p.endereco || {};
+    var linhas = [
+      ['E-mail', p.email],
+      ['Celular', p.celular],
+      ['Endereço', [e.rua, e.numero].filter(Boolean).join(', ') + (e.complemento ? ' — ' + e.complemento : '')]
+    ];
+
+    fundoFicha().innerHTML =
+      '<div class="ficha">' +
+        '<h2>' + esc(p.nome || 'Sua conta') + '</h2>' +
+        '<dl class="dados">' +
+          linhas.map(function (l) {
+            return '<dt>' + esc(l[0]) + '</dt><dd>' + esc(l[1] || '—') + '</dd>';
+          }).join('') +
+        '</dl>' +
+        '<p class="entrada-nota">Para mudar seus dados ou apagar sua conta, fale com a ' +
+          'diretoria da associação.</p>' +
+        '<div class="rodape-ficha">' +
+          '<button type="button" class="bt" id="f-fechar">Fechar</button>' +
+          '<button type="button" class="bt perigo" id="f-sair">Sair da conta</button>' +
+        '</div>' +
+      '</div>';
+
+    document.getElementById('f-fechar').addEventListener('click', fecharFicha);
+    document.getElementById('f-sair').addEventListener('click', function () {
+      C.sair();
+      fecharFicha();
+      entrada.modo = 'entrar';
+      entrada.dados = {};
+      montarEntrada();
     });
   }
 
@@ -277,6 +465,12 @@
         '</div>' +
       '</section>';
 
+    // fila de cadastros: só aparece com backend ligado e a diretoria dentro
+    if (dentro && C.modo === 'servidor') {
+      html += '<div class="secao">Cadastros aguardando</div><div id="pendentes">' +
+        '<div class="nota">Carregando…</div></div>';
+    }
+
     D.ORDEM_ESPECIES.forEach(function (e) {
       var info = D.ESPECIES[e];
       var itens = D.listarOficiais(e);
@@ -291,6 +485,33 @@
     });
 
     document.getElementById('conteudo').innerHTML = html + '</div>';
+    if (dentro && C.modo === 'servidor') pintarPendentes();
+  }
+
+  /** Cada linha é um morador que confirmou o e-mail e espera a liberação. */
+  function pintarPendentes() {
+    C.pendentes(D.credencial).then(function (lista) {
+      var caixa = document.getElementById('pendentes');
+      if (!caixa) return;
+      if (!lista.length) {
+        caixa.innerHTML = '<div class="vazio">Ninguém esperando. Todo cadastro ' +
+          'confirmado já está liberado.</div>';
+        return;
+      }
+      caixa.innerHTML = lista.map(function (c) {
+        var e = c.endereco || {};
+        var onde = [e.rua, e.numero].filter(Boolean).join(', ') + (e.complemento ? ' — ' + e.complemento : '');
+        return '<article class="item">' +
+          '<div class="rotulo">Cadastro</div>' +
+          '<h3>' + esc(c.nome) + '</h3>' +
+          '<div class="meta">' + juntar([esc(onde), esc(c.celular), esc(c.email)]) + '</div>' +
+          '<div class="acoes">' +
+            '<button class="bt forte" data-acao="liberar" data-id="' + esc(c.id) + '">Liberar acesso</button>' +
+            '<button class="bt perigo" data-acao="recusar" data-id="' + esc(c.id) + '">Recusar</button>' +
+          '</div>' +
+        '</article>';
+      }).join('');
+    });
   }
 
   function acoesDiretoria(o) {
@@ -354,6 +575,16 @@
       return;
     }
     if (acao === 'entrar-assoc') { abrirLogin(); return; }
+    if (acao === 'liberar' || acao === 'recusar') {
+      var liberando = acao === 'liberar';
+      if (!liberando && !confirm('Recusar este cadastro? A pessoa não vai conseguir entrar.')) return;
+      C.aprovar(D.credencial, b.dataset.id, liberando).then(function (deu) {
+        if (!deu) { toast('Não deu para responder agora.'); return; }
+        pintarPendentes();
+        toast(liberando ? 'Acesso liberado.' : 'Cadastro recusado.');
+      });
+      return;
+    }
     if (acao === 'sair-assoc') {
       D.sairAssociacao();
       pintarConteudo();
@@ -465,14 +696,18 @@
   }
 
   /* -------------------------------------------------- ficha: aviso do mural */
-  var CAMPOS_MURAL = ['titulo', 'texto', 'rua', 'autor', 'contato'];
+  var CAMPOS_MURAL = ['titulo', 'texto', 'rua'];
 
   function abrirFicha() {
+    var p = C.perfil || {};
+    var e = p.endereco || {};
     rascunho = {
       tipo: estado.tipo === 'tudo' ? 'ocorrencia' : estado.tipo,
-      titulo: '', texto: '', rua: '',
-      autor: D.ler('bairro.nome') || '',
-      contato: D.ler('bairro.zap') || ''
+      titulo: '', texto: '',
+      // a rua da pessoa é o palpite certo na maioria dos avisos
+      rua: e.rua ? e.rua + (e.numero ? ', ' + e.numero : '') : '',
+      autor: p.nome || 'Vizinho',
+      contato: p.celular || ''
     };
     pintarFicha();
   }
@@ -496,13 +731,8 @@
         '<div class="campo"><label for="f-rua">Rua ou referência</label>' +
           '<input id="f-rua" maxlength="80" placeholder="Rua Ipê Amarelo, altura do 300" value="' + esc(rascunho.rua) + '">' +
         '</div>' +
-        '<div class="campo"><label for="f-autor">Seu nome</label>' +
-          '<input id="f-autor" maxlength="60" placeholder="Como os vizinhos te conhecem" value="' + esc(rascunho.autor) + '">' +
-        '</div>' +
-        '<div class="campo"><label for="f-contato">WhatsApp (opcional)</label>' +
-          '<input id="f-contato" inputmode="numeric" maxlength="15" placeholder="11999998888" value="' + esc(rascunho.contato) + '">' +
-          '<div class="dica">Só com DDD e números. Fica visível para quem abrir o aviso.</div>' +
-        '</div>' +
+        '<p class="entrada-nota">Vai assinado como <b>' + esc(rascunho.autor) + '</b>' +
+          (rascunho.contato ? ', e os vizinhos poderão te chamar no WhatsApp.' : '.') + '</p>' +
         '<div class="erro" id="f-erro" hidden></div>' +
         '<div class="rodape-ficha">' +
           '<button type="button" class="bt" id="f-cancelar">Cancelar</button>' +
@@ -526,14 +756,6 @@
     guardarRascunho(rascunho, CAMPOS_MURAL);
 
     if (!rascunho.titulo.trim()) { mostrarErro('Escreva um título para o aviso.'); return; }
-    if (rascunho.contato && rascunho.contato.replace(/\D/g, '').length < 10) {
-      mostrarErro('O WhatsApp precisa do DDD — ex.: 11999998888.');
-      return;
-    }
-
-    // guarda o nome e o zap para não digitar de novo no próximo aviso
-    D.guardar('bairro.nome', rascunho.autor);
-    D.guardar('bairro.zap', rascunho.contato);
 
     D.publicar(rascunho).then(function () {
       fecharFicha();
@@ -651,13 +873,22 @@
   }
 
   /* --------------------------------------------------------------- arranque */
-  function iniciar() {
-    D.carregar();
-    D.definirTema(D.tema());
+  function abrirApp() {
     montarShell();
     pintarTema(); pintarAbas(); pintarConteudo();
     D.sincronizar().then(function () {
       pintarAbas(); pintarConteudo();
+    });
+  }
+
+  function iniciar() {
+    D.carregar();
+    D.definirTema(D.tema());
+    C.carregar();
+    // verificar() também descobre se há backend, então decide o modo dos dois
+    C.verificar().then(function () {
+      if (C.autenticado()) abrirApp();
+      else montarEntrada();
     });
   }
 
