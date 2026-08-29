@@ -1,6 +1,6 @@
 [build]
   publish = "_site"
-  command = "rm -rf _site && mkdir -p _site && cp -r index.html assets data icons manifest.webmanifest sw.js _site/"
+  command = "rm -rf _site && mkdir -p _site && cp -r index.html assets data icons manifest.webmanifest sw.js bairro _site/"
 
 [functions]
   directory = "netlify/functions"
@@ -29,5 +29,21 @@
 
 [[headers]]
   for = "/manifest.webmanifest"
+  [headers.values]
+    Cache-Control = "no-cache, must-revalidate"
+
+# --- mural do bairro (app separado, servido em /bairro/) ---------------------
+[[headers]]
+  for = "/bairro/assets/*"
+  [headers.values]
+    Cache-Control = "no-cache, must-revalidate"
+
+[[headers]]
+  for = "/bairro/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache, must-revalidate"
+
+[[headers]]
+  for = "/bairro/manifest.webmanifest"
   [headers.values]
     Cache-Control = "no-cache, must-revalidate"
