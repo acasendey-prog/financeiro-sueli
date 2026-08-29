@@ -1,0 +1,331 @@
+/* ============================================================================
+   Vizinhança — folha de estilo
+
+   Três decisões que valem para tudo aqui:
+
+   1. Lista, não cartão. Um feed de avisos é conteúdo uniforme que a pessoa
+      varre de cima a baixo. Cartão serve para descobrir coisa variada; para
+      varrer, ele só acrescenta borda, sombra e canto arredondado em volta de
+      cada item. Aqui os itens são separados por um fio de 1px e nada mais.
+
+   2. Cada cor tem um trabalho só. Tinta = texto e ação principal. Verde =
+      associação. Terracota = ocorrência. O tipo do aviso é dito por escrito,
+      não por cor — assim a tela não vira colcha de retalhos e ninguém precisa
+      distinguir seis matizes para entender o feed.
+
+   3. Texto grande e contraste alto. O bairro tem morador de 70 anos. Corpo a
+      16px, títulos a 17,5px, e nenhum texto abaixo de 4.5:1 sobre o fundo.
+   ========================================================================== */
+:root{
+  color-scheme: light dark;
+
+  --paper:    #f6f6f4;
+  --surface:  #ffffff;
+  --rule:     #e3e3df;
+  --rule-forte:#cfcfc9;
+
+  --ink:      #16181a;
+  --ink-2:    #565c60;
+  --ink-3:    #686d71;
+
+  --accent:   #1e6b4e;   /* associação */
+  --accent-fundo: rgba(30,107,78,.09);
+  --alerta:   #a8401d;   /* ocorrência */
+  --alerta-fundo: rgba(168,64,29,.09);
+
+  --largura:  620px;
+  --sans: "Public Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* Três estados de fundo, não dois. Sem escolha na mão, segue o aparelho; com
+   escolha, ela ganha do aparelho nos dois sentidos — quem prefere claro num
+   celular no modo escuro também precisa ser atendido.
+   Os dois blocos abaixo têm os mesmos valores de propósito: mudou um, muda o
+   outro. */
+@media (prefers-color-scheme: dark){
+  :root:not([data-tema="claro"]){
+    --paper:#131416; --surface:#191b1d; --rule:#2a2d30; --rule-forte:#3b3f43;
+    --ink:#ecedeb; --ink-2:#a9afb3; --ink-3:#8b9195;
+    --accent:#4fbb8b; --accent-fundo:rgba(79,187,139,.13);
+    --alerta:#de8158; --alerta-fundo:rgba(222,129,88,.13);
+  }
+}
+:root[data-tema="escuro"]{
+  --paper:#131416; --surface:#191b1d; --rule:#2a2d30; --rule-forte:#3b3f43;
+  --ink:#ecedeb; --ink-2:#a9afb3; --ink-3:#8b9195;
+  --accent:#4fbb8b; --accent-fundo:rgba(79,187,139,.13);
+  --alerta:#de8158; --alerta-fundo:rgba(222,129,88,.13);
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:var(--sans); background:var(--paper); color:var(--ink);
+  font-size:16px; line-height:1.6; min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+  padding-bottom:calc(40px + env(safe-area-inset-bottom));
+}
+button,input,select,textarea{font:inherit;color:inherit}
+/* estilo de autor ganha do [hidden] do navegador: sem isto, qualquer regra
+   com display: deixa visível um elemento marcado como escondido */
+[hidden]{display:none!important}
+button{cursor:pointer;background:none;border:none;text-align:left}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+
+/* rótulo em mono: tipo do aviso, categoria, data, seção. Sempre o mesmo
+   tratamento, para o olho aprender que aquilo é etiqueta e não conteúdo. */
+.rotulo{
+  font-family:var(--mono); font-size:11.5px; font-weight:500;
+  letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3);
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+}
+.rotulo .sep{opacity:.45}
+/* a hora vai para a direita e sai do caixa-alta: é o dado menos importante
+   da linha e não precisa da mesma ênfase do tipo do aviso */
+.rotulo time{margin-left:auto;text-transform:none;letter-spacing:.02em;color:var(--ink-3);flex:none}
+.rotulo .ponto{width:6px;height:6px;border-radius:99px;background:currentColor;flex:none}
+.rotulo.alerta{color:var(--alerta)}
+.rotulo.assoc{color:var(--accent)}
+
+/* -------------------------------------------------------------------- topo */
+.topo{
+  position:sticky; top:0; z-index:30; background:var(--paper);
+  border-bottom:1px solid var(--rule);
+  padding:calc(12px + env(safe-area-inset-top)) 0 0;
+}
+.topo .interno{max-width:var(--largura);margin:0 auto;padding:0 20px}
+.marca{display:flex;align-items:baseline;gap:10px;padding-bottom:12px}
+.marca .tema{align-self:center}
+/* em tela estreita o nome do bairro seria cortado pelos botões; ele já aparece
+   inteiro na tela de entrada e no ícone instalado */
+@media (max-width:420px){ .topo .marca .lugar{display:none} }
+.marca b{font-size:17px;font-weight:700;letter-spacing:-.015em}
+.marca .lugar{
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+/* botão de fundo claro/escuro: só o traço do ícone, sem moldura */
+.tema{
+  margin-left:auto;flex:none;display:flex;align-items:center;justify-content:center;
+  width:40px;height:40px;margin-right:-9px;margin-bottom:-2px;border-radius:99px;color:var(--ink-3);
+}
+.tema:hover{color:var(--ink);background:var(--rule)}
+
+/* a ação de publicar mora no cabeçalho, não num botão flutuante: flutuante
+   sempre acaba tapando o texto de quem está lendo */
+.linha-abas{display:flex;align-items:flex-end;gap:16px}
+.abas{display:flex;gap:26px;flex:1;min-width:0}
+.abas button{
+  padding:0 0 11px;font-size:15px;font-weight:600;color:var(--ink-3);
+  border-bottom:2px solid transparent;margin-bottom:-1px;
+  display:flex;align-items:center;gap:7px;min-height:38px;
+}
+.abas button.on{color:var(--ink);border-bottom-color:var(--ink)}
+.abas .contagem{
+  font-family:var(--mono);font-size:11px;font-weight:500;color:var(--surface);
+  background:var(--accent);min-width:18px;height:18px;padding:0 5px;border-radius:99px;
+  display:inline-flex;align-items:center;justify-content:center;letter-spacing:0;
+}
+
+/* ------------------------------------------------------------------ filtros */
+.barra{max-width:var(--largura);margin:0 auto;padding:16px 20px 0}
+.busca{position:relative;margin-bottom:14px}
+.busca input{
+  width:100%;padding:12px 14px 12px 40px;border-radius:8px;
+  border:1px solid var(--rule-forte);background:var(--surface);color:var(--ink);font-size:16px;
+}
+.busca input::placeholder{color:var(--ink-3)}
+.busca .lupa{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--ink-3);display:flex}
+
+.filtros{
+  display:flex;gap:20px;overflow-x:auto;scrollbar-width:none;
+  border-bottom:1px solid var(--rule);
+}
+.filtros::-webkit-scrollbar{display:none}
+.filtros button{
+  flex:none;padding:0 0 10px;font-size:14.5px;font-weight:500;color:var(--ink-3);
+  border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;min-height:36px;
+}
+.filtros button.on{color:var(--ink);border-bottom-color:var(--ink);font-weight:600}
+
+/* --------------------------------------------------------------------- feed */
+.feed{max-width:var(--largura);margin:0 auto;padding:0 20px}
+
+.item{padding:20px 0;border-bottom:1px solid var(--rule)}
+.item > * + *{margin-top:8px}
+.item.resolvido > *:not(.acoes){opacity:.5}
+.item h3{
+  font-size:17.5px;font-weight:600;line-height:1.35;letter-spacing:-.01em;
+  text-wrap:balance;
+}
+.item .texto{font-size:16px;line-height:1.6;color:var(--ink-2);white-space:pre-wrap;overflow-wrap:anywhere}
+.item .meta{font-size:13.5px;color:var(--ink-3)}
+.item .meta .sep{opacity:.5;padding:0 3px}
+
+/* o item da associação não ganha caixa: ganha um fio verde curto acima do
+   rótulo. É o suficiente para dizer "isto é oficial" sem virar outra caixa. */
+.item.oficial{border-left:2px solid var(--accent);padding-left:16px}
+
+.acoes{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.bt{
+  display:inline-flex;align-items:center;justify-content:center;min-height:40px;
+  padding:9px 15px;border-radius:8px;font-size:14.5px;font-weight:500;
+  border:1px solid var(--rule-forte);color:var(--ink-2);background:var(--surface);
+}
+.bt:hover{border-color:var(--ink-3);color:var(--ink)}
+.bt.forte{background:var(--ink);border-color:var(--ink);color:var(--paper);font-weight:600}
+.bt.forte:hover{color:var(--paper);opacity:.88}
+.bt.feito{background:var(--accent-fundo);border-color:transparent;color:var(--accent)}
+.bt.perigo{color:var(--alerta);border-color:transparent;background:var(--alerta-fundo)}
+.bt[disabled]{cursor:default;opacity:1}
+
+.selo{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink-3);border:1px solid var(--rule-forte);padding:1px 6px;border-radius:4px;
+  line-height:1.5;
+}
+
+/* ---------------------------------------------------------------- documento */
+.doc .doc-topo{display:flex;gap:14px;align-items:baseline}
+.doc .doc-topo h3{flex:1;min-width:0}
+.doc .doc-data{
+  font-family:var(--mono);font-size:13px;color:var(--ink-3);
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+}
+
+/* ------------------------------------------------------------------- seções */
+.secao{
+  font-family:var(--mono);font-size:11.5px;font-weight:500;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--ink-3);
+  padding:30px 0 10px;border-bottom:1px solid var(--rule-forte);
+}
+.secao:first-child{padding-top:20px}
+
+.vazio{padding:34px 0;color:var(--ink-3);font-size:15px;border-bottom:1px solid var(--rule)}
+.nota{padding:18px 0;color:var(--ink-3);font-size:13.5px}
+
+/* --------------------------------------------------------------- associação */
+.cabecalho{padding:24px 0 20px;border-bottom:1px solid var(--rule-forte)}
+.cabecalho h2{font-size:20px;font-weight:700;letter-spacing:-.02em;margin-bottom:8px}
+.cabecalho p{font-size:15.5px;color:var(--ink-2);max-width:46ch}
+.cabecalho .acoes{margin-top:16px}
+.dentro{
+  display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:9px 14px;
+  border-radius:8px;background:var(--accent-fundo);color:var(--accent);
+  font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;
+}
+
+/* --------------------------------------------------------------- ação nova */
+.publicar{
+  flex:none;display:flex;align-items:center;gap:7px;margin-bottom:9px;
+  background:var(--ink);color:var(--paper);font-size:14px;font-weight:600;
+  padding:0 15px;border-radius:99px;min-height:38px;
+}
+.publicar:hover{opacity:.85}
+
+/* -------------------------------------------------------------------- ficha */
+.fundo{position:fixed;inset:0;z-index:50;background:rgba(10,12,12,.5);display:flex;align-items:flex-end;justify-content:center}
+.ficha{
+  width:100%;max-width:560px;max-height:92vh;overflow-y:auto;background:var(--paper);
+  border-radius:16px 16px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom));
+}
+@media (min-width:620px){
+  .fundo{align-items:center}
+  .ficha{border-radius:14px;max-height:88vh}
+}
+.ficha h2{font-size:19px;font-weight:700;letter-spacing:-.015em;margin-bottom:18px}
+.ficha .explica{font-size:15px;color:var(--ink-2);margin:-10px 0 20px}
+
+.campo{margin-bottom:18px}
+.campo label{
+  display:block;font-family:var(--mono);font-size:11.5px;font-weight:500;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--ink-3);margin-bottom:7px;
+}
+.campo input,.campo textarea,.campo select{
+  width:100%;padding:12px 13px;border-radius:8px;font-size:16px;
+  border:1px solid var(--rule-forte);background:var(--surface);color:var(--ink);
+}
+.campo textarea{min-height:104px;resize:vertical;line-height:1.55}
+.campo .dica{font-size:13px;color:var(--ink-3);margin-top:7px;line-height:1.5}
+
+/* escolha de tipo: lista de opções, não grade de botões coloridos */
+.opcoes{display:flex;flex-wrap:wrap;gap:8px}
+.opcoes button{
+  padding:9px 14px;min-height:40px;border-radius:8px;font-size:14.5px;font-weight:500;
+  border:1px solid var(--rule-forte);background:var(--surface);color:var(--ink-2);
+}
+.opcoes button.on{background:var(--ink);border-color:var(--ink);color:var(--paper);font-weight:600}
+
+.caixinha{display:flex;gap:12px;align-items:flex-start;padding:14px;margin-bottom:18px;border:1px solid var(--rule-forte);border-radius:8px;background:var(--surface);cursor:pointer}
+.caixinha input{width:20px;height:20px;flex:none;margin-top:2px;accent-color:var(--ink)}
+.caixinha span{font-size:15px;font-weight:600}
+.caixinha small{display:block;font-size:13px;font-weight:400;color:var(--ink-3);margin-top:4px;line-height:1.5}
+
+.rodape-ficha{display:flex;gap:10px;margin-top:24px}
+.rodape-ficha .bt{flex:1;min-height:48px}
+.erro{color:var(--alerta);font-size:14.5px;margin-top:14px}
+
+/* ------------------------------------------------------------------- toasts */
+#toasts{position:fixed;left:0;right:0;bottom:calc(28px + env(safe-area-inset-bottom));z-index:60;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none}
+.toast{background:var(--ink);color:var(--paper);padding:11px 18px;border-radius:99px;font-size:14.5px;box-shadow:0 8px 24px -10px rgba(0,0,0,.5)}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+}
+
+/* ------------------------------------------------------ tela de entrada --- */
+/* Uma coluna estreita e centrada: é a única tela do app onde a pessoa não
+   está lendo o bairro, está provando quem é. Nada mais compete por atenção. */
+.entrada{
+  min-height:100vh;display:flex;align-items:flex-start;justify-content:center;
+  padding:clamp(20px,7vh,64px) 20px 48px;
+}
+.entrada-cartao{width:100%;max-width:26rem}
+.entrada-marca{display:flex;align-items:center;gap:10px;margin-bottom:22px}
+.entrada-marca b{font-size:22px;font-weight:700;letter-spacing:-.02em;display:block;line-height:1.15}
+.entrada-marca .lugar{
+  display:block;font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ink-3);
+}
+.entrada-marca .tema{margin-left:auto}
+.entrada-titulo{font-size:19px;font-weight:700;letter-spacing:-.015em;margin-bottom:8px}
+.entrada-texto{font-size:15.5px;color:var(--ink-2);margin-bottom:20px}
+.entrada .abas{margin-bottom:22px;border-bottom:1px solid var(--rule)}
+.entrada-form{display:block}
+.entrada-nota{
+  font-size:13px;line-height:1.55;color:var(--ink-3);margin-top:18px;
+  padding-top:16px;border-top:1px solid var(--rule);
+}
+.ficha .entrada-nota{margin:-4px 0 0}
+
+.bt.largo{width:100%;min-height:50px;margin-top:6px;font-size:15.5px}
+.dupla{display:flex;gap:10px}
+.dupla .campo{flex:1;min-width:0}
+.dupla .campo.estreito{flex:0 0 6.5rem}
+
+/* botão da conta: a inicial do nome, do tamanho de um alvo de dedo */
+.conta{
+  flex:none;display:flex;align-items:center;justify-content:center;align-self:center;
+  width:34px;height:34px;margin-right:-2px;border-radius:99px;
+  background:var(--ink);color:var(--paper);font-size:14px;font-weight:700;
+}
+.conta:hover{opacity:.85}
+
+/* sem conta, o convite é discreto: um botão de texto, não um avatar vazio */
+.conta-vazia{
+  flex:none;align-self:center;padding:7px 13px;min-height:34px;border-radius:99px;
+  border:1px solid var(--rule-forte);color:var(--ink-2);background:var(--surface);
+  font-size:13.5px;font-weight:500;
+}
+.conta-vazia:hover{border-color:var(--ink-3);color:var(--ink)}
+
+.entrada .bt.largo + .bt.largo{margin-top:10px}
+
+.dados{display:grid;grid-template-columns:auto 1fr;gap:8px 16px;margin-bottom:18px}
+.dados dt{
+  font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink-3);padding-top:3px;
+}
+.dados dd{font-size:15.5px;overflow-wrap:anywhere}
