@@ -35,9 +35,23 @@
 
   /* identificação do aparelho: serve só para saber o que este celular publicou
      e impedir que a mesma pessoa confirme o mesmo aviso duas vezes. */
+  /* localStorage pode simplesmente lançar exceção — aba anônima, cookies
+     bloqueados, disco cheio. Nenhuma leitura ou escrita pode derrubar o app. */
+  function ler(chave) {
+    try { return localStorage.getItem(chave); } catch (e) { return null; }
+  }
+
+  function guardar(chave, valor) {
+    try { localStorage.setItem(chave, valor); return true; } catch (e) { return false; }
+  }
+
+  var aparelhoCache = null;
+
   function aparelho() {
-    var v = localStorage.getItem('bairro.aparelho');
-    if (!v) { v = id(); localStorage.setItem('bairro.aparelho', v); }
+    if (aparelhoCache) return aparelhoCache;
+    var v = ler('bairro.aparelho');
+    if (!v) { v = id(); guardar('bairro.aparelho', v); }
+    aparelhoCache = v;
     return v;
   }
 
@@ -80,7 +94,7 @@
     /* --------------------------------------------------------- persistência */
     carregar: function () {
       var cru = null;
-      try { cru = JSON.parse(localStorage.getItem(CHAVE)); } catch (e) { cru = null; }
+      try { cru = JSON.parse(ler(CHAVE)); } catch (e) { cru = null; }
       if (!cru) {
         this.avisos = exemplos();
         this.confirmados = [];
@@ -94,9 +108,8 @@
     },
 
     gravar: function () {
-      try {
-        localStorage.setItem(CHAVE, JSON.stringify({ avisos: this.avisos, confirmados: this.confirmados }));
-      } catch (e) { /* aba anônima ou disco cheio — segue só em memória */ }
+      // se não der para gravar (aba anônima, disco cheio), segue só em memória
+      guardar(CHAVE, JSON.stringify({ avisos: this.avisos, confirmados: this.confirmados }));
     },
 
     /* ------------------------------------------------------------ consultas */
@@ -226,7 +239,9 @@
       return 'https://wa.me/' + num + '?text=' + encodeURIComponent('Oi! Vi seu aviso no app do bairro: ' + aviso.titulo);
     },
 
-    aparelho: aparelho
+    aparelho: aparelho,
+    ler: ler,
+    guardar: guardar
   };
 
   global.Dados = Dados;

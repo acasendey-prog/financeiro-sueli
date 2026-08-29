@@ -160,8 +160,8 @@
     rascunho = {
       tipo: estado.tipo === 'tudo' ? 'ocorrencia' : estado.tipo,
       titulo: '', texto: '', rua: '',
-      autor: localStorage.getItem('bairro.nome') || '',
-      contato: localStorage.getItem('bairro.zap') || ''
+      autor: D.ler('bairro.nome') || '',
+      contato: D.ler('bairro.zap') || ''
     };
     pintarFicha();
   }
@@ -249,8 +249,8 @@
     }
 
     // guarda o nome e o zap para não digitar de novo no próximo aviso
-    localStorage.setItem('bairro.nome', rascunho.autor);
-    localStorage.setItem('bairro.zap', rascunho.contato);
+    D.guardar('bairro.nome', rascunho.autor);
+    D.guardar('bairro.zap', rascunho.contato);
 
     D.publicar(rascunho).then(function () {
       fecharFicha();
