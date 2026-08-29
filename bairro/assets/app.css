@@ -38,13 +38,24 @@
   --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
+/* Três estados de fundo, não dois. Sem escolha na mão, segue o aparelho; com
+   escolha, ela ganha do aparelho nos dois sentidos — quem prefere claro num
+   celular no modo escuro também precisa ser atendido.
+   Os dois blocos abaixo têm os mesmos valores de propósito: mudou um, muda o
+   outro. */
 @media (prefers-color-scheme: dark){
-  :root{
+  :root:not([data-tema="claro"]){
     --paper:#131416; --surface:#191b1d; --rule:#2a2d30; --rule-forte:#3b3f43;
     --ink:#ecedeb; --ink-2:#a9afb3; --ink-3:#8b9195;
     --accent:#4fbb8b; --accent-fundo:rgba(79,187,139,.13);
     --alerta:#de8158; --alerta-fundo:rgba(222,129,88,.13);
   }
+}
+:root[data-tema="escuro"]{
+  --paper:#131416; --surface:#191b1d; --rule:#2a2d30; --rule-forte:#3b3f43;
+  --ink:#ecedeb; --ink-2:#a9afb3; --ink-3:#8b9195;
+  --accent:#4fbb8b; --accent-fundo:rgba(79,187,139,.13);
+  --alerta:#de8158; --alerta-fundo:rgba(222,129,88,.13);
 }
 
 *{box-sizing:border-box;margin:0;padding:0}
@@ -86,15 +97,18 @@ a{color:inherit;text-decoration:none}
 }
 .topo .interno{max-width:var(--largura);margin:0 auto;padding:0 20px}
 .marca{display:flex;align-items:baseline;gap:10px;padding-bottom:12px}
+.marca .tema{align-self:center}
 .marca b{font-size:17px;font-weight:700;letter-spacing:-.015em}
 .marca .lugar{
   font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
   color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
-.marca .modo{
-  margin-left:auto;flex:none;font-family:var(--mono);font-size:10.5px;
-  letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);
+/* botão de fundo claro/escuro: só o traço do ícone, sem moldura */
+.tema{
+  margin-left:auto;flex:none;display:flex;align-items:center;justify-content:center;
+  width:40px;height:40px;margin-right:-9px;margin-bottom:-2px;border-radius:99px;color:var(--ink-3);
 }
+.tema:hover{color:var(--ink);background:var(--rule)}
 
 /* a ação de publicar mora no cabeçalho, não num botão flutuante: flutuante
    sempre acaba tapando o texto de quem está lendo */

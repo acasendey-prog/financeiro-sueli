@@ -8,6 +8,15 @@
 <title>Vizinhança — mural do bairro</title>
 <link rel="icon" href="icons/icon-192.png">
 
+<!-- Aplica o fundo escolhido antes da primeira pintura. Sem isto, quem
+     escolheu escuro vê um lampejo branco a cada abertura. -->
+<script>
+  try {
+    var t = localStorage.getItem('bairro.tema');
+    if (t === 'claro' || t === 'escuro') document.documentElement.dataset.tema = t;
+  } catch (e) { /* aba anônima: segue o aparelho */ }
+</script>
+
 <!-- App instalável (PWA) -->
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">

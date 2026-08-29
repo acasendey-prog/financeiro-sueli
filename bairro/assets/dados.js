@@ -76,6 +76,20 @@
     return v;
   }
 
+  /* Escrever o atributo na raiz é o que faz a folha de estilo trocar; a cor
+     da barra do navegador acompanha para o app não ficar com a moldura de um
+     tema e o conteúdo de outro. */
+  function aplicarTema(valor) {
+    var raiz = document.documentElement;
+    if (valor === 'claro' || valor === 'escuro') raiz.dataset.tema = valor;
+    else delete raiz.dataset.tema;
+
+    var escuro = valor === 'escuro' ||
+      (valor === 'auto' && global.matchMedia && global.matchMedia('(prefers-color-scheme: dark)').matches);
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', escuro ? '#131416' : '#f6f6f4');
+  }
+
   function exemplosMural() {
     var t = Date.now();
     var base = [
@@ -421,6 +435,31 @@
       if (!aviso.contato) return null;
       var num = aviso.contato.length <= 11 ? '55' + aviso.contato : aviso.contato;
       return 'https://wa.me/' + num + '?text=' + encodeURIComponent('Oi! Vi seu aviso no app do bairro: ' + aviso.titulo);
+    },
+
+    /* ---------------------------------------------------- fundo claro/escuro
+       'auto' segue o aparelho; 'claro' e 'escuro' são escolha da pessoa e
+       valem acima do aparelho. Fica no localStorage porque é preferência de
+       quem está com o celular na mão, não do bairro. */
+    TEMAS: ['auto', 'claro', 'escuro'],
+
+    tema: function () {
+      var v = ler('bairro.tema');
+      return v === 'claro' || v === 'escuro' ? v : 'auto';
+    },
+
+    definirTema: function (valor) {
+      if (this.TEMAS.indexOf(valor) < 0) valor = 'auto';
+      if (valor === 'auto') apagarChave('bairro.tema');
+      else guardar('bairro.tema', valor);
+      aplicarTema(valor);
+      return valor;
+    },
+
+    /** devolve o próximo da roda: auto -> claro -> escuro -> auto */
+    proximoTema: function () {
+      var t = this.TEMAS;
+      return t[(t.indexOf(this.tema()) + 1) % t.length];
     },
 
     aparelho: aparelho,

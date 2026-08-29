@@ -27,7 +27,9 @@ São dois espaços, com regras de escrita diferentes:
   o resto em 30. Vencidos saem do feed e viram só uma contagem
 - **Contato por WhatsApp** via `wa.me`, sem chat interno
 - **Instalável (PWA)** e abre offline com o que já foi carregado
-- Tema claro e escuro conforme o aparelho
+- **Fundo claro, escuro ou automático** — botão no canto do cabeçalho, três
+  estados em roda. Sem escolha, segue o aparelho; com escolha, ela vale acima
+  do aparelho e sobrevive ao recarregar
 
 ### Associação
 
@@ -72,6 +74,14 @@ traços em SVG, a lupa da busca e o mais do botão publicar.
 
 A ação de publicar fica no cabeçalho, não num botão flutuante — flutuante
 sempre acaba tapando o texto de quem está lendo.
+
+O fundo tem **três** estados, não dois: `auto`, `claro` e `escuro`. Só dois
+seria pior do que parece — quem prefere fundo claro num celular configurado no
+escuro ficaria sem saída. A escolha vai para o `localStorage` e é aplicada por
+um script no `<head>`, antes da primeira pintura; sem isso, quem escolheu
+escuro veria um lampejo branco a cada abertura. A cor da barra do navegador
+(`theme-color`) acompanha, para o app não ficar com a moldura de um tema e o
+conteúdo de outro.
 
 ## Como ver
 

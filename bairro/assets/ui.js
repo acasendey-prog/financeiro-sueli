@@ -20,8 +20,14 @@
   /* Traço de 1,5px, herdando a cor do texto — os únicos ícones do app. */
   var ICONE = {
     busca: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>',
-    mais: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>'
+    mais: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+    // sol, lua e meia-lua cheia: claro, escuro e "acompanha o aparelho"
+    claro: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/></svg>',
+    escuro: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.2A8.2 8.2 0 019.8 4a8.4 8.4 0 100 20 8.2 8.2 0 0010.2-9.8z"/></svg>',
+    auto: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8.4"/><path d="M12 3.6a8.4 8.4 0 010 16.8z" fill="currentColor" stroke="none"/></svg>'
   };
+
+  var NOME_TEMA = { auto: 'acompanha o aparelho', claro: 'claro', escuro: 'escuro' };
 
   function esc(s) {
     return String(s == null ? '' : s)
@@ -57,7 +63,7 @@
         '<div class="marca">' +
           '<b>Vizinhança</b>' +
           '<span class="lugar">Jardim das Acácias</span>' +
-          '<span class="modo" id="modo"></span>' +
+          '<button class="tema" id="btTema"></button>' +
         '</div>' +
         '<div class="linha-abas">' +
           '<nav class="abas" id="abas">' +
@@ -83,11 +89,22 @@
       if (D.naAssociacao()) abrirFichaOficial();
     });
     document.getElementById('conteudo').addEventListener('click', aoClicar);
+    document.getElementById('btTema').addEventListener('click', function () {
+      var novo = D.definirTema(D.proximoTema());
+      pintarTema();
+      toast('Fundo ' + NOME_TEMA[novo] + '.');
+    });
   }
 
-  function pintarModo() {
-    var el = document.getElementById('modo');
-    if (el) el.textContent = D.modo === 'compartilhado' ? 'compartilhado' : 'demonstração';
+  function pintarTema() {
+    var bt = document.getElementById('btTema');
+    if (!bt) return;
+    var atual = D.tema();
+    bt.innerHTML = ICONE[atual];
+    // diz o estado atual, não só a próxima ação: numa roda de três, saber
+    // onde se está é o que falta
+    bt.setAttribute('aria-label', 'Fundo ' + NOME_TEMA[atual] + '. Tocar para mudar.');
+    bt.setAttribute('title', 'Fundo ' + NOME_TEMA[atual]);
   }
 
   function pintarAbas() {
@@ -217,6 +234,9 @@
 
     if (arquivados) {
       html += '<div class="nota">' + arquivados + ' aviso(s) passaram do prazo e saíram do mural.</div>';
+    }
+    if (D.modo !== 'compartilhado') {
+      html += '<div class="nota">Modo demonstração: os avisos ficam só neste aparelho.</div>';
     }
 
     document.getElementById('feed').innerHTML = html;
@@ -604,10 +624,11 @@
   /* --------------------------------------------------------------- arranque */
   function iniciar() {
     D.carregar();
+    D.definirTema(D.tema());
     montarShell();
-    pintarModo(); pintarAbas(); pintarConteudo();
+    pintarTema(); pintarAbas(); pintarConteudo();
     D.sincronizar().then(function () {
-      pintarModo(); pintarAbas(); pintarConteudo();
+      pintarAbas(); pintarConteudo();
     });
   }
 
