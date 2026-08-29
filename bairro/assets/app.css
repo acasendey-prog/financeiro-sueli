@@ -66,10 +66,28 @@ a{color:var(--brand-hi);text-decoration:none}
 }
 .topo .marca{display:flex;align-items:center;gap:10px;padding-bottom:10px}
 .topo .marca img{width:34px;height:34px;border-radius:10px;flex:none}
+.topo .marca > div{min-width:0}
 .topo .marca b{font-size:16px;letter-spacing:-.01em;display:block;line-height:1.15}
-.topo .marca span{font-size:11px;color:var(--ink-3);letter-spacing:.1em;text-transform:uppercase}
-.topo .marca .modo{margin-left:auto;font-size:11px;color:var(--ink-3);text-align:right;max-width:40%}
+/* nome do bairro corta com reticências em vez de empurrar o cabeçalho */
+.topo .marca span{
+  display:block;font-size:11px;color:var(--ink-3);letter-spacing:.1em;text-transform:uppercase;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.topo .marca .modo{margin-left:auto;flex:none;font-size:11px;color:var(--ink-3);text-align:right;max-width:44%;line-height:1.35}
 
+/* abas: mural × associação */
+.abas{display:flex;gap:4px}
+.abas button{
+  flex:1;padding:11px 8px;font-size:14.5px;font-weight:600;color:var(--ink-3);
+  border-bottom:2.5px solid transparent;display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.abas button.on{color:var(--ink);border-bottom-color:var(--brand)}
+.abas .bolinha{
+  min-width:19px;height:19px;padding:0 5px;border-radius:99px;background:var(--brand);color:#fff;
+  font-size:11.5px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;
+}
+
+.barra{max-width:640px;margin:0 auto;padding:14px 14px 0}
 .busca{position:relative;margin-bottom:10px}
 .busca input{
   width:100%; padding:11px 13px 11px 38px; border-radius:99px;
@@ -89,6 +107,7 @@ a{color:var(--brand-hi);text-decoration:none}
 
 /* ------------------------------------------------------------------ feed --- */
 .feed{max-width:640px;margin:0 auto;padding:14px}
+.barra + .feed{padding-top:4px}
 .aviso{
   background:var(--card); border:1px solid var(--stroke); border-radius:var(--r);
   padding:14px; margin-bottom:11px; box-shadow:var(--shadow);
@@ -166,3 +185,54 @@ a{color:var(--brand-hi);text-decoration:none}
 /* ---------------------------------------------------------------- avisos --- */
 #toasts{position:fixed;left:0;right:0;bottom:calc(88px + env(safe-area-inset-bottom));z-index:60;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none}
 .toast{background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:99px;font-size:13.5px;box-shadow:var(--shadow)}
+
+/* ---------------------------------------------------------- associação --- */
+/* O canal oficial precisa se distinguir do mural à primeira vista: fundo
+   levemente tingido de verde e uma faixa cheia no lugar da barrinha fina. */
+.painel{
+  max-width:640px;margin:0 auto;background:var(--card);border:1px solid var(--stroke);
+  border-radius:var(--r);padding:16px;box-shadow:var(--shadow);
+  border-top:3px solid var(--brand);
+}
+.painel h2{font-size:17px;margin-bottom:6px}
+.painel p{font-size:14px;color:var(--ink-2)}
+.painel .acoes{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:13px}
+.selo-dentro{font-size:12.5px;font-weight:600;color:var(--brand-hi);background:var(--brand-dim);padding:7px 12px;border-radius:99px}
+
+.aviso.oficial{
+  border-left:none;border-top:3px solid var(--brand);
+  background:linear-gradient(180deg, var(--brand-dim), transparent 90px), var(--card);
+}
+.aviso.oficial .tag{color:var(--brand-hi);background:var(--brand-dim)}
+.aviso.oficial.fixado{border-top-width:4px}
+.selo-fixado{font-size:11px;font-weight:600;color:var(--brand-hi);border:1px solid var(--brand);padding:3px 8px;border-radius:99px}
+
+.bt.claro{background:var(--brand-dim);border-color:var(--brand);color:var(--brand-hi);font-weight:600}
+
+/* documento: linha de arquivo, não cartão de recado */
+.doc{
+  display:flex;gap:12px;align-items:flex-start;background:var(--card);
+  border:1px solid var(--stroke);border-radius:var(--r);padding:13px 14px;margin-bottom:9px;
+}
+.doc-ic{font-size:22px;line-height:1.2;flex:none}
+.doc-corpo{min-width:0;flex:1}
+.doc h3{font-size:15.5px;font-weight:600;line-height:1.3;margin-bottom:5px}
+.doc .meta{font-size:12.5px;color:var(--ink-3)}
+.doc .meta span{opacity:.5;padding:0 2px}
+.doc .cat{
+  opacity:1;padding:2px 8px;border-radius:99px;background:var(--bg-2);
+  border:1px solid var(--stroke-soft);font-size:11.5px;font-weight:600;color:var(--ink-2);
+}
+.doc .texto{font-size:13.5px;color:var(--ink-2);margin-top:7px}
+.doc .acoes{display:flex;gap:8px;margin-top:11px;flex-wrap:wrap;align-items:center}
+.sem-arquivo{font-size:12.5px;color:var(--ink-3);font-style:italic}
+
+/* ------------------------------------------------------- campos extras --- */
+.ficha .explica{font-size:13.5px;color:var(--ink-2);margin-bottom:15px}
+.caixinha{
+  display:flex;gap:11px;align-items:flex-start;padding:12px;margin-bottom:13px;
+  border:1px solid var(--stroke);border-radius:var(--r-sm);background:var(--card);cursor:pointer;
+}
+.caixinha input{width:19px;height:19px;flex:none;margin-top:1px;accent-color:var(--brand)}
+.caixinha span{font-size:14px;font-weight:500}
+.caixinha small{display:block;font-size:12px;font-weight:400;color:var(--ink-3);margin-top:3px}

@@ -1,29 +1,45 @@
 /* ============================================================================
-   dados.js — camada de dados do mural do bairro
+   dados.js — camada de dados do app do bairro
+
+   São dois espaços com regras diferentes:
+     • mural      — qualquer vizinho publica
+     • associação — só quem tem o código da associação publica; todo mundo lê
 
    Dois modos, decididos sozinho no arranque:
-     • compartilhado — existe /api/mural respondendo; todo mundo vê o mesmo mural
-     • local         — sem backend; os avisos ficam só neste aparelho (demonstração)
-
-   O esqueleto já funciona inteiro no modo local, então dá para abrir o arquivo
-   e testar sem instalar nada.
+     • compartilhado — existe /api/mural respondendo; todo mundo vê o mesmo
+     • local         — sem backend; fica só neste aparelho (demonstração)
    ========================================================================== */
 (function (global) {
   'use strict';
 
   var CHAVE = 'bairro.v1';
   var URL_API = '/api/mural';
+  var CODIGO_DEMO = 'associacao';   // só vale no modo demonstração
 
-  /* Cada tipo de aviso tem cor, ícone e prazo de validade próprios. Aviso de
-     falta d'água não interessa depois de uma semana; serviço de manicure sim. */
+  /* Cada tipo de aviso do mural tem cor, ícone e prazo de validade próprios.
+     Falta d'água não interessa depois de uma semana; manicure sim. */
   var TIPOS = {
-    servico:    { nome: 'Serviço',    plural: 'Serviços',       ic: '🔧', cor: 'var(--t-servico)',    dias: 60 },
-    ocorrencia: { nome: 'Ocorrência', plural: 'Ocorrências',    ic: '⚠️', cor: 'var(--t-ocorrencia)', dias: 7  },
-    evento:     { nome: 'Evento',     plural: 'Eventos',        ic: '📅', cor: 'var(--t-evento)',     dias: 30 },
-    perdido:    { nome: 'Perdido',    plural: 'Achados e perdidos', ic: '🐶', cor: 'var(--t-perdido)', dias: 30 },
-    doacao:     { nome: 'Doação',     plural: 'Doações e trocas', ic: '🎁', cor: 'var(--t-doacao)',   dias: 30 }
+    servico:    { nome: 'Serviço',    plural: 'Serviços',           ic: '🔧', cor: 'var(--t-servico)',    dias: 60 },
+    ocorrencia: { nome: 'Ocorrência', plural: 'Ocorrências',        ic: '⚠️', cor: 'var(--t-ocorrencia)', dias: 7  },
+    evento:     { nome: 'Evento',     plural: 'Eventos',            ic: '📅', cor: 'var(--t-evento)',     dias: 30 },
+    perdido:    { nome: 'Perdido',    plural: 'Achados e perdidos', ic: '🐶', cor: 'var(--t-perdido)',    dias: 30 },
+    doacao:     { nome: 'Doação',     plural: 'Doações e trocas',   ic: '🎁', cor: 'var(--t-doacao)',     dias: 30 }
   };
   var ORDEM_TIPOS = ['ocorrencia', 'servico', 'evento', 'perdido', 'doacao'];
+
+  /* Publicações da associação. Documento não vence: ata de 2019 continua
+     valendo como registro. */
+  var ESPECIES = {
+    aviso:     { nome: 'Aviso',     plural: 'Avisos',     ic: '📢', dias: 45 },
+    informe:   { nome: 'Informe',   plural: 'Informes',   ic: '📰', dias: 180 },
+    documento: { nome: 'Documento', plural: 'Documentos', ic: '📄', dias: null }
+  };
+  var ORDEM_ESPECIES = ['aviso', 'informe', 'documento'];
+
+  var CATEGORIAS_DOC = [
+    'Ata de assembleia', 'Balancete', 'Prestação de contas', 'Convenção',
+    'Regimento interno', 'Edital', 'Ofício', 'Outro'
+  ];
 
   var DIA = 86400000;
 
@@ -33,8 +49,6 @@
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   }
 
-  /* identificação do aparelho: serve só para saber o que este celular publicou
-     e impedir que a mesma pessoa confirme o mesmo aviso duas vezes. */
   /* localStorage pode simplesmente lançar exceção — aba anônima, cookies
      bloqueados, disco cheio. Nenhuma leitura ou escrita pode derrubar o app. */
   function ler(chave) {
@@ -45,8 +59,14 @@
     try { localStorage.setItem(chave, valor); return true; } catch (e) { return false; }
   }
 
+  function apagarChave(chave) {
+    try { localStorage.removeItem(chave); } catch (e) { /* nada a fazer */ }
+  }
+
   var aparelhoCache = null;
 
+  /* identificação do aparelho: serve só para saber o que este celular publicou
+     e impedir que a mesma pessoa confirme o mesmo aviso duas vezes. */
   function aparelho() {
     if (aparelhoCache) return aparelhoCache;
     var v = ler('bairro.aparelho');
@@ -55,7 +75,7 @@
     return v;
   }
 
-  function exemplos() {
+  function exemplosMural() {
     var t = Date.now();
     var base = [
       { tipo: 'ocorrencia', titulo: 'Sem água na Rua das Acácias desde as 6h',
@@ -75,11 +95,44 @@
         rua: 'Rua Jacarandá', autor: 'Paula', contato: '11977776666', h: 70, confirmacoes: 0 }
     ];
     return base.map(function (e) {
-      var criado = new Date(t - e.h * 3600000).toISOString();
       return {
         id: id(), tipo: e.tipo, titulo: e.titulo, texto: e.texto, rua: e.rua,
-        autor: e.autor, contato: e.contato, criadoEm: criado, resolvido: false,
-        confirmacoes: e.confirmacoes, autorAparelho: 'exemplo'
+        autor: e.autor, contato: e.contato,
+        criadoEm: new Date(t - e.h * 3600000).toISOString(),
+        resolvido: false, confirmacoes: e.confirmacoes, autorAparelho: 'exemplo'
+      };
+    });
+  }
+
+  function exemplosOficiais() {
+    var t = Date.now();
+    var base = [
+      { especie: 'aviso', titulo: 'Assembleia geral ordinária — 14/09, 9h, salão da igreja',
+        texto: 'Pauta: prestação de contas de 2025, eleição da nova diretoria e obra do portão da praça. ' +
+               'Quem não puder ir pode mandar procuração assinada por outro morador.',
+        fixado: true, h: 20 },
+      { especie: 'aviso', titulo: 'Coleta de recicláveis muda para quarta-feira',
+        texto: 'A partir de setembro o caminhão passa às quartas, entre 7h e 10h. Deixar na calçada só depois das 6h.',
+        fixado: false, h: 96 },
+      { especie: 'informe', titulo: 'O que a associação fez no primeiro semestre',
+        texto: 'Trocamos 18 lâmpadas de poste com a concessionária, conseguimos a poda das árvores da Rua Ipê ' +
+               'e abrimos 3 chamados de tapa-buraco (2 atendidos). O caixa fechou o semestre com R$ 2.480,00.\n\n' +
+               'O que está parado: a faixa de pedestre em frente à escola, que depende da prefeitura.',
+        fixado: false, h: 240 },
+      { especie: 'documento', titulo: 'Ata da assembleia de 10/05/2026', categoria: 'Ata de assembleia',
+        referencia: '2026-05-10', link: 'https://exemplo.org/ata-2026-05-10.pdf', h: 300 },
+      { especie: 'documento', titulo: 'Balancete — 1º semestre de 2026', categoria: 'Balancete',
+        referencia: '2026-06-30', link: 'https://exemplo.org/balancete-2026-1s.pdf', h: 260 },
+      { especie: 'documento', titulo: 'Estatuto da associação', categoria: 'Convenção',
+        referencia: '2019-03-22', link: 'https://exemplo.org/estatuto.pdf', h: 3000 }
+    ];
+    return base.map(function (e) {
+      return {
+        id: id(), especie: e.especie, titulo: e.titulo, texto: e.texto || '',
+        categoria: e.categoria || '', referencia: e.referencia || '',
+        link: e.link || '', arquivo: null, fixado: !!e.fixado,
+        assinatura: 'Diretoria da associação',
+        criadoEm: new Date(t - e.h * 3600000).toISOString()
       };
     });
   }
@@ -87,32 +140,43 @@
   var Dados = {
     TIPOS: TIPOS,
     ORDEM_TIPOS: ORDEM_TIPOS,
+    ESPECIES: ESPECIES,
+    ORDEM_ESPECIES: ORDEM_ESPECIES,
+    CATEGORIAS_DOC: CATEGORIAS_DOC,
+    CODIGO_DEMO: CODIGO_DEMO,
+
     modo: 'local',          // local | compartilhado
-    avisos: [],
+    avisos: [],             // mural dos vizinhos
+    oficiais: [],           // publicações da associação
     confirmados: [],        // ids que ESTE aparelho já confirmou
+    credencial: null,       // preenchida quando entrou como associação
 
     /* --------------------------------------------------------- persistência */
     carregar: function () {
       var cru = null;
       try { cru = JSON.parse(ler(CHAVE)); } catch (e) { cru = null; }
       if (!cru) {
-        this.avisos = exemplos();
+        this.avisos = exemplosMural();
+        this.oficiais = exemplosOficiais();
         this.confirmados = [];
-        this.primeiraVez = true;
         this.gravar();
       } else {
         this.avisos = cru.avisos || [];
+        this.oficiais = cru.oficiais || [];
         this.confirmados = cru.confirmados || [];
       }
+      this.credencial = ler('bairro.credencial');
       return this;
     },
 
     gravar: function () {
       // se não der para gravar (aba anônima, disco cheio), segue só em memória
-      guardar(CHAVE, JSON.stringify({ avisos: this.avisos, confirmados: this.confirmados }));
+      guardar(CHAVE, JSON.stringify({
+        avisos: this.avisos, oficiais: this.oficiais, confirmados: this.confirmados
+      }));
     },
 
-    /* ------------------------------------------------------------ consultas */
+    /* ------------------------------------------------------ mural: consultas */
     /** Um aviso "venceu" quando passou do prazo do tipo dele. */
     vencido: function (a) {
       var prazo = (TIPOS[a.tipo] || {}).dias || 30;
@@ -153,7 +217,7 @@
       return conta;
     },
 
-    /* -------------------------------------------------------------- escrita */
+    /* -------------------------------------------------------- mural: escrita */
     publicar: function (dados) {
       var novo = {
         id: id(),
@@ -193,6 +257,118 @@
       return this._enviar('remover', { id: aviso.id });
     },
 
+    /* --------------------------------------------------- associação: acesso
+       O código da associação nunca fica guardado no aparelho. O que fica é a
+       credencial devolvida pelo servidor, que ele sabe conferir e pode
+       invalidar trocando a variável de ambiente. */
+    naAssociacao: function () { return !!this.credencial; },
+
+    entrarAssociacao: function (codigo) {
+      var self = this;
+      codigo = String(codigo || '').trim();
+      if (!codigo) return Promise.resolve({ ok: false, erro: 'Digite o código da associação.' });
+
+      if (this.modo !== 'compartilhado') {
+        // sem backend não há o que conferir: vale o código de demonstração
+        if (codigo.toLowerCase() !== CODIGO_DEMO) {
+          return Promise.resolve({ ok: false, erro: 'Código não confere.' });
+        }
+        this.credencial = 'demonstracao';
+        guardar('bairro.credencial', this.credencial);
+        return Promise.resolve({ ok: true });
+      }
+
+      return fetch(URL_API, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ acao: 'entrar', dados: { codigo: codigo }, aparelho: aparelho() })
+      }).then(function (r) {
+        return r.json().then(function (j) {
+          if (!r.ok || !j.credencial) {
+            return { ok: false, erro: r.status === 401 ? 'Código não confere.' : 'Não deu para entrar agora.' };
+          }
+          self.credencial = j.credencial;
+          guardar('bairro.credencial', self.credencial);
+          return { ok: true };
+        });
+      }).catch(function () {
+        return { ok: false, erro: 'Sem conexão com o servidor.' };
+      });
+    },
+
+    sairAssociacao: function () {
+      this.credencial = null;
+      apagarChave('bairro.credencial');
+    },
+
+    /* ------------------------------------------------ associação: consultas */
+    /** Informe velho sai da lista; documento fica para sempre. */
+    oficialVencido: function (o) {
+      var prazo = (ESPECIES[o.especie] || {}).dias;
+      if (!prazo) return false;
+      return Date.now() - new Date(o.criadoEm).getTime() > prazo * DIA;
+    },
+
+    listarOficiais: function (especie, busca) {
+      var self = this;
+      busca = (busca || '').trim().toLowerCase();
+      return this.oficiais.filter(function (o) {
+        if (o.especie !== especie) return false;
+        if (self.oficialVencido(o)) return false;
+        if (busca) {
+          var alvo = (o.titulo + ' ' + o.texto + ' ' + o.categoria).toLowerCase();
+          if (alvo.indexOf(busca) < 0) return false;
+        }
+        return true;
+      }).sort(function (x, y) {
+        if (!!x.fixado !== !!y.fixado) return x.fixado ? -1 : 1;
+        // documento ordena pela data de referência; o resto, pela publicação
+        var dx = x.especie === 'documento' && x.referencia ? x.referencia : x.criadoEm;
+        var dy = y.especie === 'documento' && y.referencia ? y.referencia : y.criadoEm;
+        return new Date(dy) - new Date(dx);
+      });
+    },
+
+    /** Avisos que a associação fixou — aparecem no topo do mural também. */
+    fixados: function () {
+      var self = this;
+      return this.oficiais.filter(function (o) {
+        return o.fixado && o.especie === 'aviso' && !self.oficialVencido(o);
+      }).sort(function (x, y) { return new Date(y.criadoEm) - new Date(x.criadoEm); });
+    },
+
+    /* -------------------------------------------------- associação: escrita */
+    publicarOficial: function (dados) {
+      var novo = {
+        id: id(),
+        especie: dados.especie,
+        titulo: String(dados.titulo || '').trim().slice(0, 140),
+        texto: String(dados.texto || '').trim().slice(0, 4000),
+        categoria: String(dados.categoria || '').trim().slice(0, 40),
+        referencia: String(dados.referencia || '').slice(0, 10),
+        link: String(dados.link || '').trim().slice(0, 400),
+        arquivo: null,
+        fixado: !!dados.fixado,
+        assinatura: String(dados.assinatura || '').trim().slice(0, 60) || 'Diretoria da associação',
+        criadoEm: agora()
+      };
+      this.oficiais.unshift(novo);
+      this.gravar();
+      return this._enviar('publicar-oficial', novo).then(function () { return novo; });
+    },
+
+    alternarFixado: function (o) {
+      o.fixado = !o.fixado;
+      this.gravar();
+      return this._enviar('fixar-oficial', { id: o.id, fixado: o.fixado });
+    },
+
+    removerOficial: function (o) {
+      this.oficiais = this.oficiais.filter(function (x) { return x.id !== o.id; });
+      this.gravar();
+      return this._enviar('remover-oficial', { id: o.id });
+    },
+
     /* ------------------------------------------------- conversa com o servidor
        Enquanto não houver backend, tudo isso vira no-op e o app segue local. */
     sincronizar: function () {
@@ -204,22 +380,31 @@
         })
         .then(function (j) {
           self.modo = 'compartilhado';
-          if (Array.isArray(j.avisos)) { self.avisos = j.avisos; self.gravar(); }
+          if (Array.isArray(j.avisos)) self.avisos = j.avisos;
+          if (Array.isArray(j.oficiais)) self.oficiais = j.oficiais;
+          self.gravar();
           return true;
         })
-        .catch(function () { self.modo = 'local'; return false; });
+        .catch(function () {
+          self.modo = 'local';
+          // credencial do servidor não vale no modo local, e vice-versa
+          if (self.credencial && self.credencial !== 'demonstracao') self.sairAssociacao();
+          return false;
+        });
     },
 
     _enviar: function (acao, corpo) {
       if (this.modo !== 'compartilhado') return Promise.resolve(false);
+      var cabecalhos = { 'content-type': 'application/json' };
+      if (this.credencial) cabecalhos['x-associacao'] = this.credencial;
       return fetch(URL_API, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: cabecalhos,
         body: JSON.stringify({ acao: acao, dados: corpo, aparelho: aparelho() })
       }).then(function (r) { return r.ok; }).catch(function () { return false; });
     },
 
-    /* ------------------------------------------------------------- utilidades */
+    /* ------------------------------------------------------------ utilidades */
     /** "há 3 h", "ontem", "12/03" — o suficiente para o feed. */
     quando: function (iso) {
       var min = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
@@ -231,6 +416,13 @@
       if (d === 1) return 'ontem';
       if (d < 7) return 'há ' + d + ' dias';
       return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    },
+
+    /** data de referência de documento: "10/05/2026" */
+    dataCurta: function (iso) {
+      if (!iso) return '';
+      var p = String(iso).slice(0, 10).split('-');
+      return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : iso;
     },
 
     linkZap: function (aviso) {
