@@ -28,6 +28,17 @@
   };
   var ORDEM_TIPOS = ['ocorrencia', 'servico', 'evento', 'perdido', 'doacao'];
 
+  /* O verbo de encerrar muda com o tipo. "Resolvido" serve para falta d'água,
+     mas ninguém resolve uma manicure, e gato perdido a gente quer é encontrar
+     — o rótulo certo é o que faz a pessoa entender o botão sem pensar. */
+  var ENCERRAR = {
+    ocorrencia: { acao: 'Marcar resolvido', selo: 'resolvido' },
+    servico:    { acao: 'Encerrar',         selo: 'encerrado' },
+    evento:     { acao: 'Encerrar',         selo: 'encerrado' },
+    perdido:    { acao: 'Foi encontrado',   selo: 'encontrado' },
+    doacao:     { acao: 'Já foi doado',     selo: 'doado' }
+  };
+
   /* Publicações da associação. Documento não vence: ata de 2019 continua
      valendo como registro. */
   var ESPECIES = {
@@ -104,7 +115,8 @@
         rua: 'Praça Central', autor: 'Dona Vera', contato: '11988887777', h: 30, confirmacoes: 2 },
       { tipo: 'evento', titulo: 'Mutirão de limpeza da praça — sábado 8h',
         texto: 'Levar luva e saco de lixo. A associação entra com as ferramentas.',
-        rua: 'Praça Central', autor: 'Associação de Moradores', contato: '', h: 50, confirmacoes: 11 },
+        rua: 'Praça Central', autor: 'Associação de Moradores', contato: '', h: 50, confirmacoes: 0,
+        inscritos: ['Marcos', 'Cleide', 'Paula', 'Seu Antônio', 'Dona Vera'] },
       { tipo: 'doacao', titulo: 'Doo berço e carrinho de bebê',
         texto: 'Estão usados mas inteiros. Retirar no local, prefiro quem precisa mesmo.',
         rua: 'Rua Jacarandá', autor: 'Paula', contato: '11977776666', h: 70, confirmacoes: 0 }
@@ -114,7 +126,9 @@
         id: id(), tipo: e.tipo, titulo: e.titulo, texto: e.texto, rua: e.rua,
         autor: e.autor, contato: e.contato,
         criadoEm: new Date(t - e.h * 3600000).toISOString(),
-        resolvido: false, confirmacoes: e.confirmacoes, autorAparelho: 'exemplo'
+        resolvido: false, resolvidoPor: null, confirmacoes: e.confirmacoes,
+        inscritos: (e.inscritos || []).map(function (n, i) { return { ap: 'exemplo' + i, nome: n }; }),
+        autorAparelho: 'exemplo'
       };
     });
   }
@@ -200,6 +214,18 @@
 
     meu: function (a) { return a.autorAparelho === aparelho(); },
 
+    /** Reabrir e apagar são de quem publicou — ou da diretoria, que modera. */
+    podeReabrir: function (a) { return this.meu(a) || this.naAssociacao(); },
+
+    encerrar: function (tipo) { return ENCERRAR[tipo] || ENCERRAR.ocorrencia; },
+
+    /** Quem encerrou: 'autor', 'diretoria' ou 'vizinho'. */
+    quemEncerrou: function (a) {
+      if (a.resolvidoPor === 'vizinho') return 'por um vizinho';
+      if (a.resolvidoPor === 'diretoria') return 'pela associação';
+      return '';
+    },
+
     jaConfirmei: function (a) { return this.confirmados.indexOf(a.id) >= 0; },
 
     /** Lista filtrada e ordenada: mais recente primeiro, resolvidos no fim. */
@@ -235,7 +261,9 @@
         contato: String(dados.contato || '').replace(/\D/g, '').slice(0, 13),
         criadoEm: agora(),
         resolvido: false,
+        resolvidoPor: null,
         confirmacoes: 0,
+        inscritos: [],
         autorAparelho: aparelho()
       };
       this.avisos.unshift(novo);
@@ -251,10 +279,51 @@
       return this._enviar('confirmar', { id: aviso.id }).then(function () { return true; });
     },
 
+    /* Encerrar qualquer vizinho pode: quem viu a água voltar sabe disso antes
+       de quem publicou. Reabrir é que fica restrito a quem publicou e à
+       diretoria — assim um engano se desfaz, mas não vira disputa. */
     alternarResolvido: function (aviso) {
-      aviso.resolvido = !aviso.resolvido;
+      var reabrindo = !!aviso.resolvido;
+      if (reabrindo && !this.podeReabrir(aviso)) return Promise.resolve(false);
+
+      aviso.resolvido = !reabrindo;
+      aviso.resolvidoPor = aviso.resolvido
+        ? (this.meu(aviso) ? 'autor' : (this.naAssociacao() ? 'diretoria' : 'vizinho'))
+        : null;
       this.gravar();
-      return this._enviar('resolver', { id: aviso.id, resolvido: aviso.resolvido });
+      return this._enviar('resolver', {
+        id: aviso.id, resolvido: aviso.resolvido, resolvidoPor: aviso.resolvidoPor
+      });
+    },
+
+    /* ------------------------------------------------- presença em evento
+       Num mutirão, saber quantos vêm muda o que o organizador leva. */
+    inscritos: function (a) { return a.inscritos || []; },
+
+    estouInscrito: function (a) {
+      var eu = aparelho();
+      return this.inscritos(a).some(function (i) { return i.ap === eu; });
+    },
+
+    /** "Marcos, Cleide e mais 3" — nome de quem organiza a lista mentalmente */
+    nomesInscritos: function (a) {
+      var nomes = this.inscritos(a).map(function (i) { return i.nome; });
+      if (!nomes.length) return '';
+      if (nomes.length <= 3) return nomes.join(', ');
+      return nomes.slice(0, 2).join(', ') + ' e mais ' + (nomes.length - 2);
+    },
+
+    alternarInscricao: function (a) {
+      var eu = aparelho();
+      var dentro = this.estouInscrito(a);
+      var nome = String(ler('bairro.nome') || '').trim().slice(0, 60) || 'Vizinho';
+
+      a.inscritos = dentro
+        ? this.inscritos(a).filter(function (i) { return i.ap !== eu; })
+        : this.inscritos(a).concat([{ ap: eu, nome: nome }]);
+      this.gravar();
+      return this._enviar('inscrever', { id: a.id, entrando: !dentro, nome: nome })
+        .then(function () { return !dentro; });
     },
 
     remover: function (aviso) {
@@ -431,10 +500,15 @@
       return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : iso;
     },
 
-    linkZap: function (aviso) {
+    /* A mensagem já vai escrita. Num serviço quase sempre o que a pessoa quer
+       é preço, então o pedido de orçamento vira o texto padrão. */
+    linkZap: function (aviso, motivo) {
       if (!aviso.contato) return null;
       var num = aviso.contato.length <= 11 ? '55' + aviso.contato : aviso.contato;
-      return 'https://wa.me/' + num + '?text=' + encodeURIComponent('Oi! Vi seu aviso no app do bairro: ' + aviso.titulo);
+      var texto = motivo === 'orcamento'
+        ? 'Oi! Vi seu anúncio no app do bairro — ' + aviso.titulo + '. Pode me passar um orçamento?'
+        : 'Oi! Vi seu aviso no app do bairro: ' + aviso.titulo;
+      return 'https://wa.me/' + num + '?text=' + encodeURIComponent(texto);
     },
 
     /* ---------------------------------------------------- fundo claro/escuro

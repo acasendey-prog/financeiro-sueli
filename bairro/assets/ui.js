@@ -174,34 +174,53 @@
   function itemMural(a) {
     var info = D.TIPOS[a.tipo] || { nome: a.tipo };
     var urgente = a.tipo === 'ocorrencia' && !a.resolvido;
-    var zap = D.linkZap(a);
+    var fim = D.encerrar(a.tipo);
+    var evento = a.tipo === 'evento';
+    var servico = a.tipo === 'servico';
     var confirmei = D.jaConfirmei(a);
+    var vou = D.estouInscrito(a);
+    var quantos = D.inscritos(a).length;
 
     var rotulo = '<div class="rotulo' + (urgente ? ' alerta' : '') + '">' +
       (urgente ? '<span class="ponto"></span>' : '') +
       esc(info.nome) +
-      (a.resolvido ? '<span class="selo">resolvido</span>' : '') +
+      (a.resolvido ? '<span class="selo">' + esc((fim.selo + ' ' + D.quemEncerrou(a)).trim()) + '</span>' : '') +
       '<time>' + esc(D.quando(a.criadoEm)) + '</time>' +
     '</div>';
 
-    var meta = juntar([
-      a.rua ? esc(a.rua) : '',
-      esc(a.autor),
-      a.confirmacoes ? a.confirmacoes + (a.confirmacoes === 1 ? ' confirmou' : ' confirmaram') : ''
-    ]);
+    // num evento o número que interessa é quantos vêm, não quantos acharam útil
+    var sinal = evento
+      ? (quantos ? quantos + (quantos === 1 ? ' vai' : ' vão') + ': ' + esc(D.nomesInscritos(a)) : '')
+      : (a.confirmacoes ? a.confirmacoes + (a.confirmacoes === 1 ? ' confirmou' : ' confirmaram') : '');
+
+    var meta = juntar([a.rua ? esc(a.rua) : '', esc(a.autor), sinal]);
 
     var acoes = '';
-    if (zap) acoes += '<a class="bt forte" href="' + esc(zap) + '" target="_blank" rel="noopener">WhatsApp</a>';
-    if (!a.resolvido) {
-      // numa ocorrência confirmar é "acontece comigo também"; no resto é recomendação
-      var rot = a.tipo === 'ocorrencia' ? 'Também estou vendo' : 'Achei útil';
-      acoes += '<button class="bt' + (confirmei ? ' feito' : '') + '" data-acao="confirmar" data-id="' + a.id + '"' +
-        (confirmei ? ' disabled' : '') + '>' + (confirmei ? 'Você confirmou' : rot) + '</button>';
+    var zap = D.linkZap(a, servico ? 'orcamento' : '');
+    if (zap) {
+      acoes += '<a class="bt forte" href="' + esc(zap) + '" target="_blank" rel="noopener">' +
+        (servico ? 'Pedir orçamento' : 'WhatsApp') + '</a>';
     }
-    if (D.meu(a)) {
-      acoes += '<button class="bt" data-acao="resolver" data-id="' + a.id + '">' +
-        (a.resolvido ? 'Reabrir' : 'Resolvido') + '</button>' +
-        '<button class="bt perigo" data-acao="remover" data-id="' + a.id + '">Apagar</button>';
+
+    if (!a.resolvido) {
+      if (evento) {
+        acoes += '<button class="bt' + (vou ? ' feito' : '') + '" data-acao="inscrever" data-id="' + a.id + '">' +
+          (vou ? 'Você vai' : 'Eu vou') + '</button>';
+      } else if (!D.meu(a)) {
+        // confirmar o próprio aviso não quer dizer nada, então nem aparece.
+        // numa ocorrência é "acontece comigo também"; no resto é recomendação
+        var rot = a.tipo === 'ocorrencia' ? 'Também estou vendo' : 'Achei útil';
+        acoes += '<button class="bt' + (confirmei ? ' feito' : '') + '" data-acao="confirmar" data-id="' + a.id + '"' +
+          (confirmei ? ' disabled' : '') + '>' + (confirmei ? 'Você confirmou' : rot) + '</button>';
+      }
+      // encerrar qualquer vizinho pode: quem viu a água voltar sabe antes de quem publicou
+      acoes += '<button class="bt" data-acao="resolver" data-id="' + a.id + '">' + esc(fim.acao) + '</button>';
+    } else if (D.podeReabrir(a)) {
+      acoes += '<button class="bt" data-acao="resolver" data-id="' + a.id + '">Reabrir</button>';
+    }
+
+    if (D.podeReabrir(a)) {
+      acoes += '<button class="bt perigo" data-acao="remover" data-id="' + a.id + '">Apagar</button>';
     }
 
     return '<article class="item' + (a.resolvido ? ' resolvido' : '') + '">' +
@@ -359,8 +378,18 @@
     if (!aviso) return;
     if (acao === 'confirmar') {
       D.confirmar(aviso).then(function () { pintarFeed(); toast('Confirmação registrada.'); });
+    } else if (acao === 'inscrever') {
+      D.alternarInscricao(aviso).then(function (entrou) {
+        pintarFeed();
+        toast(entrou ? 'Anotado, você vai.' : 'Tirei seu nome da lista.');
+      });
     } else if (acao === 'resolver') {
-      D.alternarResolvido(aviso).then(function () { pintarFeed(); });
+      var fechando = !aviso.resolvido;
+      var selo = D.encerrar(aviso.tipo).selo;
+      D.alternarResolvido(aviso).then(function () {
+        pintarFeed();
+        toast(fechando ? 'Marcado como ' + selo + '.' : 'Aviso reaberto.');
+      });
     } else if (acao === 'remover') {
       if (!confirm('Apagar este aviso?')) return;
       D.remover(aviso).then(function () { pintarFeed(); toast('Aviso apagado.'); });

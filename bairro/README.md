@@ -22,7 +22,14 @@ São dois espaços, com regras de escrita diferentes:
 - **Filtro por tipo** e **busca** por título, texto, rua ou pessoa
 - **Publicar aviso** (título, detalhes, rua, nome e WhatsApp opcional)
 - **"Também estou vendo isso"** — contador de confirmações, uma por aparelho
-- **Marcar como resolvido / apagar** — só para quem publicou
+- **Encerrar o aviso**, com o verbo certo para cada tipo: ocorrência se
+  *resolve*, serviço se *encerra*, perdido é *encontrado*, doação é *doada*.
+  Qualquer vizinho pode encerrar — quem viu a água voltar sabe disso antes de
+  quem publicou — e o selo diz quem encerrou. Reabrir e apagar ficam com quem
+  publicou e com a diretoria
+- **"Eu vou"** nos eventos, com a lista de quem vai. Num mutirão, saber
+  quantos vêm muda o que o organizador leva
+- **"Pedir orçamento"** nos serviços: abre o WhatsApp com o pedido já escrito
 - **Validade automática**: ocorrência sai do mural em 7 dias, serviço em 60,
   o resto em 30. Vencidos saem do feed e viram só uma contagem
 - **Contato por WhatsApp** via `wa.me`, sem chat interno

@@ -141,8 +141,8 @@ export default async (req) => {
   /* ------------------------------------------------------- mural dos vizinhos */
   const alvo = base.avisos.find((a) => a.id === dados.id);
 
-  // só quem publicou (mesmo aparelho) pode resolver ou apagar — a diretoria
-  // pode mexer em qualquer aviso, que é o mínimo de moderação
+  // reabrir e apagar são de quem publicou; a diretoria pode mexer em
+  // qualquer aviso, que é o mínimo de moderação
   const podeMexer = ehDiretoria || (alvo && alvo.autorAparelho && alvo.autorAparelho === aparelho);
 
   if (acao === 'publicar') {
@@ -157,7 +157,9 @@ export default async (req) => {
       contato: texto(dados.contato, 13).replace(/\D/g, ''),
       criadoEm: new Date().toISOString(),
       resolvido: false,
+      resolvidoPor: null,
       confirmacoes: 0,
+      inscritos: [],
       autorAparelho: texto(aparelho, 40)
     });
   } else if (acao === 'confirmar') {
@@ -165,8 +167,22 @@ export default async (req) => {
     alvo.confirmacoes = (alvo.confirmacoes || 0) + 1;
   } else if (acao === 'resolver') {
     if (!alvo) return json({ erro: 'nao_encontrado' }, 404);
-    if (!podeMexer) return json({ erro: 'nao_autorizado' }, 403);
+    // encerrar qualquer vizinho pode; reabrir, só quem publicou e a diretoria
+    if (!dados.resolvido && !podeMexer) return json({ erro: 'nao_autorizado' }, 403);
     alvo.resolvido = !!dados.resolvido;
+    alvo.resolvidoPor = alvo.resolvido
+      ? (['autor', 'diretoria', 'vizinho'].includes(dados.resolvidoPor) ? dados.resolvidoPor : 'vizinho')
+      : null;
+  } else if (acao === 'inscrever') {
+    if (!alvo) return json({ erro: 'nao_encontrado' }, 404);
+    const ap = texto(aparelho, 40);
+    if (!ap) return json({ erro: 'aparelho_ausente' }, 400);
+    const lista = Array.isArray(alvo.inscritos) ? alvo.inscritos : [];
+    // um aparelho, um lugar na lista — reenviar não duplica
+    alvo.inscritos = lista.filter((i) => i && i.ap !== ap);
+    if (dados.entrando) {
+      alvo.inscritos.push({ ap, nome: texto(dados.nome, 60) || 'Vizinho' });
+    }
   } else if (acao === 'remover') {
     if (!alvo) return json({ erro: 'nao_encontrado' }, 404);
     if (!podeMexer) return json({ erro: 'nao_autorizado' }, 403);
