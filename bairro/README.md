@@ -31,8 +31,8 @@ São dois espaços, com regras de escrita diferentes:
 
 ### Associação
 
-Canal só de leitura para o morador comum, com visual próprio (faixa verde no
-topo do cartão) para não se confundir com recado de vizinho.
+Canal só de leitura para o morador comum, marcado por um fio verde à esquerda
+do item, para não se confundir com recado de vizinho.
 
 - **Avisos** — convocação de assembleia, mudança de coleta, obra na rua
 - **Informes** — texto mais longo, prestação de contas em palavras, balanço
@@ -45,6 +45,33 @@ topo do cartão) para não se confundir com recado de vizinho.
 - **Entrar como diretoria** — um código só, o mesmo para todos da diretoria.
   O código não fica guardado no aparelho: o que fica é a credencial devolvida
   pelo servidor, que ele sabe invalidar
+
+## O layout
+
+Três regras decidem tudo o que aparece na tela.
+
+**1. Lista, não cartão.** Um feed de avisos é conteúdo uniforme que a pessoa
+varre de cima a baixo. Cartão serve para descobrir coisa variada; para varrer,
+ele só acrescenta borda, sombra e canto arredondado em volta de cada item.
+Aqui os itens são separados por um fio de 1px e nada mais.
+
+**2. Cada cor tem um trabalho só.** Tinta é texto e ação principal, verde é a
+associação, terracota é ocorrência. O tipo do aviso é dito por escrito no
+rótulo, não por cor — seis matizes competindo é o que fazia a tela virar
+colcha de retalhos, e as diretrizes de acessibilidade ainda desaconselham
+justamente os pares azul-laranja e vermelho-verde que estavam ali.
+
+**3. Texto grande e contraste alto.** O bairro tem morador de 70 anos. Corpo a
+16px (piso recomendado, não teto), títulos a 17,5px, e nenhuma cor de texto
+abaixo de 4.5:1 sobre o fundo — verificado nos dois temas.
+
+Tipografia: **Public Sans** (desenhada para interface de serviço público) no
+texto e **IBM Plex Mono** nos rótulos, datas e categorias, onde a largura fixa
+alinha os números e dá cara de registro. Sem emoji: os únicos ícones são dois
+traços em SVG, a lupa da busca e o mais do botão publicar.
+
+A ação de publicar fica no cabeçalho, não num botão flutuante — flutuante
+sempre acaba tapando o texto de quem está lendo.
 
 ## Como ver
 

@@ -16,23 +16,24 @@
   var URL_API = '/api/mural';
   var CODIGO_DEMO = 'associacao';   // só vale no modo demonstração
 
-  /* Cada tipo de aviso do mural tem cor, ícone e prazo de validade próprios.
-     Falta d'água não interessa depois de uma semana; manicure sim. */
+  /* Cada tipo de aviso do mural tem só nome e prazo de validade. Nada de cor
+     própria: a cor não é o que distingue um do outro na tela — o rótulo
+     escrito é. Falta d'água não interessa depois de uma semana; manicure sim. */
   var TIPOS = {
-    servico:    { nome: 'Serviço',    plural: 'Serviços',           ic: '🔧', cor: 'var(--t-servico)',    dias: 60 },
-    ocorrencia: { nome: 'Ocorrência', plural: 'Ocorrências',        ic: '⚠️', cor: 'var(--t-ocorrencia)', dias: 7  },
-    evento:     { nome: 'Evento',     plural: 'Eventos',            ic: '📅', cor: 'var(--t-evento)',     dias: 30 },
-    perdido:    { nome: 'Perdido',    plural: 'Achados e perdidos', ic: '🐶', cor: 'var(--t-perdido)',    dias: 30 },
-    doacao:     { nome: 'Doação',     plural: 'Doações e trocas',   ic: '🎁', cor: 'var(--t-doacao)',     dias: 30 }
+    servico:    { nome: 'Serviço',    plural: 'Serviços',           dias: 60 },
+    ocorrencia: { nome: 'Ocorrência', plural: 'Ocorrências',        dias: 7  },
+    evento:     { nome: 'Evento',     plural: 'Eventos',            dias: 30 },
+    perdido:    { nome: 'Perdido',    plural: 'Perdidos',           dias: 30 },
+    doacao:     { nome: 'Doação',     plural: 'Doações',            dias: 30 }
   };
   var ORDEM_TIPOS = ['ocorrencia', 'servico', 'evento', 'perdido', 'doacao'];
 
   /* Publicações da associação. Documento não vence: ata de 2019 continua
      valendo como registro. */
   var ESPECIES = {
-    aviso:     { nome: 'Aviso',     plural: 'Avisos',     ic: '📢', dias: 45 },
-    informe:   { nome: 'Informe',   plural: 'Informes',   ic: '📰', dias: 180 },
-    documento: { nome: 'Documento', plural: 'Documentos', ic: '📄', dias: null }
+    aviso:     { nome: 'Aviso',     plural: 'Avisos',     dias: 45 },
+    informe:   { nome: 'Informe',   plural: 'Informes',   dias: 180 },
+    documento: { nome: 'Documento', plural: 'Documentos', dias: null }
   };
   var ORDEM_ESPECIES = ['aviso', 'informe', 'documento'];
 
@@ -206,15 +207,6 @@
         if (!!x.resolvido !== !!y.resolvido) return x.resolvido ? 1 : -1;
         return new Date(y.criadoEm) - new Date(x.criadoEm);
       });
-    },
-
-    contarPorTipo: function (busca) {
-      var conta = { tudo: 0 };
-      ORDEM_TIPOS.forEach(function (t) { conta[t] = 0; });
-      this.listar({ tipo: 'tudo', busca: busca }).forEach(function (a) {
-        conta.tudo++; if (conta[a.tipo] !== undefined) conta[a.tipo]++;
-      });
-      return conta;
     },
 
     /* -------------------------------------------------------- mural: escrita */

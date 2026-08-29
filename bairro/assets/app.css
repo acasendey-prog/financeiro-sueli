@@ -1,238 +1,259 @@
 /* ============================================================================
    Vizinhança — folha de estilo
-   Feito para o celular primeiro: uma coluna, alvos grandes, texto grande.
-   Acompanha o tema claro/escuro do aparelho.
+
+   Três decisões que valem para tudo aqui:
+
+   1. Lista, não cartão. Um feed de avisos é conteúdo uniforme que a pessoa
+      varre de cima a baixo. Cartão serve para descobrir coisa variada; para
+      varrer, ele só acrescenta borda, sombra e canto arredondado em volta de
+      cada item. Aqui os itens são separados por um fio de 1px e nada mais.
+
+   2. Cada cor tem um trabalho só. Tinta = texto e ação principal. Verde =
+      associação. Terracota = ocorrência. O tipo do aviso é dito por escrito,
+      não por cor — assim a tela não vira colcha de retalhos e ninguém precisa
+      distinguir seis matizes para entender o feed.
+
+   3. Texto grande e contraste alto. O bairro tem morador de 70 anos. Corpo a
+      16px, títulos a 17,5px, e nenhum texto abaixo de 4.5:1 sobre o fundo.
    ========================================================================== */
 :root{
   color-scheme: light dark;
 
-  --bg:        #f4f6f4;
-  --bg-2:      #e9ede9;
-  --card:      #ffffff;
-  --card-2:    #f7f9f7;
-  --stroke:    rgba(16,32,24,.12);
-  --stroke-soft: rgba(16,32,24,.07);
+  --paper:    #f6f6f4;
+  --surface:  #ffffff;
+  --rule:     #e3e3df;
+  --rule-forte:#cfcfc9;
 
-  --ink:       #16211c;
-  --ink-2:     #4d5b54;
-  --ink-3:     #7b877f;
+  --ink:      #16181a;
+  --ink-2:    #565c60;
+  --ink-3:    #686d71;
 
-  --brand:     #189e70;
-  --brand-hi:  #12805b;
-  --brand-dim: rgba(24,158,112,.12);
+  --accent:   #1e6b4e;   /* associação */
+  --accent-fundo: rgba(30,107,78,.09);
+  --alerta:   #a8401d;   /* ocorrência */
+  --alerta-fundo: rgba(168,64,29,.09);
 
-  /* cores por tipo de aviso — tons distinguíveis também no daltonismo */
-  --t-servico:    #2f6fd0;
-  --t-ocorrencia: #cf5a1f;
-  --t-evento:     #7a57cf;
-  --t-perdido:    #c2306b;
-  --t-doacao:     #17835f;
-
-  --r-sm:9px; --r:14px; --r-lg:20px;
-  --shadow: 0 10px 28px -18px rgba(10,30,20,.55);
-  --sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --largura:  620px;
+  --sans: "Public Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
 @media (prefers-color-scheme: dark){
   :root{
-    --bg:#151a17; --bg-2:#11150f; --card:#1e2521; --card-2:#232b26;
-    --stroke:rgba(255,255,255,.12); --stroke-soft:rgba(255,255,255,.07);
-    --ink:#eef2ef; --ink-2:#b3bdb7; --ink-3:#8a948d;
-    --brand:#3ec28f; --brand-hi:#5fd3a6; --brand-dim:rgba(62,194,143,.16);
-    --t-servico:#6ba6f0; --t-ocorrencia:#f0894f; --t-evento:#ab8ef0;
-    --t-perdido:#ee7aa8; --t-doacao:#4cc79a;
-    --shadow: 0 14px 32px -20px rgba(0,0,0,.85);
+    --paper:#131416; --surface:#191b1d; --rule:#2a2d30; --rule-forte:#3b3f43;
+    --ink:#ecedeb; --ink-2:#a9afb3; --ink-3:#8b9195;
+    --accent:#4fbb8b; --accent-fundo:rgba(79,187,139,.13);
+    --alerta:#de8158; --alerta-fundo:rgba(222,129,88,.13);
   }
 }
 
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-text-size-adjust:100%}
 body{
-  font-family:var(--sans); color:var(--ink); background:var(--bg);
-  font-size:16px; line-height:1.5; min-height:100vh;
-  padding-bottom:calc(84px + env(safe-area-inset-bottom));
+  font-family:var(--sans); background:var(--paper); color:var(--ink);
+  font-size:16px; line-height:1.6; min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+  padding-bottom:calc(40px + env(safe-area-inset-bottom));
 }
 button,input,select,textarea{font:inherit;color:inherit}
-button{cursor:pointer;background:none;border:none}
-a{color:var(--brand-hi);text-decoration:none}
+/* estilo de autor ganha do [hidden] do navegador: sem isto, qualquer regra
+   com display: deixa visível um elemento marcado como escondido */
+[hidden]{display:none!important}
+button{cursor:pointer;background:none;border:none;text-align:left}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
 
-/* ------------------------------------------------------------------ topo --- */
+/* rótulo em mono: tipo do aviso, categoria, data, seção. Sempre o mesmo
+   tratamento, para o olho aprender que aquilo é etiqueta e não conteúdo. */
+.rotulo{
+  font-family:var(--mono); font-size:11.5px; font-weight:500;
+  letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3);
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+}
+.rotulo .sep{opacity:.45}
+/* a hora vai para a direita e sai do caixa-alta: é o dado menos importante
+   da linha e não precisa da mesma ênfase do tipo do aviso */
+.rotulo time{margin-left:auto;text-transform:none;letter-spacing:.02em;color:var(--ink-3);flex:none}
+.rotulo .ponto{width:6px;height:6px;border-radius:99px;background:currentColor;flex:none}
+.rotulo.alerta{color:var(--alerta)}
+.rotulo.assoc{color:var(--accent)}
+
+/* -------------------------------------------------------------------- topo */
 .topo{
-  position:sticky; top:0; z-index:30;
-  background:color-mix(in srgb, var(--bg) 86%, transparent);
-  backdrop-filter:blur(12px);
-  border-bottom:1px solid var(--stroke-soft);
-  padding:calc(10px + env(safe-area-inset-top)) 14px 0;
+  position:sticky; top:0; z-index:30; background:var(--paper);
+  border-bottom:1px solid var(--rule);
+  padding:calc(12px + env(safe-area-inset-top)) 0 0;
 }
-.topo .marca{display:flex;align-items:center;gap:10px;padding-bottom:10px}
-.topo .marca img{width:34px;height:34px;border-radius:10px;flex:none}
-.topo .marca > div{min-width:0}
-.topo .marca b{font-size:16px;letter-spacing:-.01em;display:block;line-height:1.15}
-/* nome do bairro corta com reticências em vez de empurrar o cabeçalho */
-.topo .marca span{
-  display:block;font-size:11px;color:var(--ink-3);letter-spacing:.1em;text-transform:uppercase;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+.topo .interno{max-width:var(--largura);margin:0 auto;padding:0 20px}
+.marca{display:flex;align-items:baseline;gap:10px;padding-bottom:12px}
+.marca b{font-size:17px;font-weight:700;letter-spacing:-.015em}
+.marca .lugar{
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
-.topo .marca .modo{margin-left:auto;flex:none;font-size:11px;color:var(--ink-3);text-align:right;max-width:44%;line-height:1.35}
+.marca .modo{
+  margin-left:auto;flex:none;font-family:var(--mono);font-size:10.5px;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);
+}
 
-/* abas: mural × associação */
-.abas{display:flex;gap:4px}
+/* a ação de publicar mora no cabeçalho, não num botão flutuante: flutuante
+   sempre acaba tapando o texto de quem está lendo */
+.linha-abas{display:flex;align-items:flex-end;gap:16px}
+.abas{display:flex;gap:26px;flex:1;min-width:0}
 .abas button{
-  flex:1;padding:11px 8px;font-size:14.5px;font-weight:600;color:var(--ink-3);
-  border-bottom:2.5px solid transparent;display:flex;align-items:center;justify-content:center;gap:6px;
+  padding:0 0 11px;font-size:15px;font-weight:600;color:var(--ink-3);
+  border-bottom:2px solid transparent;margin-bottom:-1px;
+  display:flex;align-items:center;gap:7px;min-height:38px;
 }
-.abas button.on{color:var(--ink);border-bottom-color:var(--brand)}
-.abas .bolinha{
-  min-width:19px;height:19px;padding:0 5px;border-radius:99px;background:var(--brand);color:#fff;
-  font-size:11.5px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;
+.abas button.on{color:var(--ink);border-bottom-color:var(--ink)}
+.abas .contagem{
+  font-family:var(--mono);font-size:11px;font-weight:500;color:var(--surface);
+  background:var(--accent);min-width:18px;height:18px;padding:0 5px;border-radius:99px;
+  display:inline-flex;align-items:center;justify-content:center;letter-spacing:0;
 }
 
-.barra{max-width:640px;margin:0 auto;padding:14px 14px 0}
-.busca{position:relative;margin-bottom:10px}
+/* ------------------------------------------------------------------ filtros */
+.barra{max-width:var(--largura);margin:0 auto;padding:16px 20px 0}
+.busca{position:relative;margin-bottom:14px}
 .busca input{
-  width:100%; padding:11px 13px 11px 38px; border-radius:99px;
-  border:1px solid var(--stroke); background:var(--card); color:var(--ink);
+  width:100%;padding:12px 14px 12px 40px;border-radius:8px;
+  border:1px solid var(--rule-forte);background:var(--surface);color:var(--ink);font-size:16px;
 }
-.busca input:focus{outline:2px solid var(--brand);outline-offset:1px}
-.busca .lupa{position:absolute;left:13px;top:50%;transform:translateY(-50%);opacity:.5;font-size:15px}
+.busca input::placeholder{color:var(--ink-3)}
+.busca .lupa{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--ink-3);display:flex}
 
-/* filtros em fila rolável */
-.filtros{display:flex;gap:7px;overflow-x:auto;padding:0 0 11px;scrollbar-width:none}
+.filtros{
+  display:flex;gap:20px;overflow-x:auto;scrollbar-width:none;
+  border-bottom:1px solid var(--rule);
+}
 .filtros::-webkit-scrollbar{display:none}
-.chip{
-  flex:none; padding:7px 13px; border-radius:99px; font-size:13.5px; font-weight:500;
-  border:1px solid var(--stroke); background:var(--card); color:var(--ink-2); white-space:nowrap;
+.filtros button{
+  flex:none;padding:0 0 10px;font-size:14.5px;font-weight:500;color:var(--ink-3);
+  border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;min-height:36px;
 }
-.chip.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.filtros button.on{color:var(--ink);border-bottom-color:var(--ink);font-weight:600}
 
-/* ------------------------------------------------------------------ feed --- */
-.feed{max-width:640px;margin:0 auto;padding:14px}
-.barra + .feed{padding-top:4px}
-.aviso{
-  background:var(--card); border:1px solid var(--stroke); border-radius:var(--r);
-  padding:14px; margin-bottom:11px; box-shadow:var(--shadow);
-  border-left:4px solid var(--cor,var(--brand));
-}
-.aviso.resolvido{opacity:.58}
-.aviso .cab{display:flex;align-items:center;gap:8px;margin-bottom:7px;flex-wrap:wrap}
-.tag{
-  font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
-  color:var(--cor,var(--brand)); background:color-mix(in srgb, var(--cor,var(--brand)) 13%, transparent);
-  padding:3px 8px;border-radius:99px;
-}
-.aviso .quando{font-size:12px;color:var(--ink-3);margin-left:auto}
-.aviso h3{font-size:16.5px;line-height:1.3;font-weight:600;margin-bottom:4px}
-.aviso .texto{font-size:14.5px;color:var(--ink-2);white-space:pre-wrap;overflow-wrap:anywhere}
-.aviso .meta{font-size:12.5px;color:var(--ink-3);margin-top:8px}
-.aviso .meta span{opacity:.5;padding:0 2px}
-.aviso .acoes{display:flex;gap:8px;margin-top:11px;flex-wrap:wrap}
-.selo-resolvido{font-size:11px;font-weight:600;color:var(--ink-3);border:1px solid var(--stroke);padding:3px 8px;border-radius:99px}
+/* --------------------------------------------------------------------- feed */
+.feed{max-width:var(--largura);margin:0 auto;padding:0 20px}
 
+.item{padding:20px 0;border-bottom:1px solid var(--rule)}
+.item > * + *{margin-top:8px}
+.item.resolvido > *:not(.acoes){opacity:.5}
+.item h3{
+  font-size:17.5px;font-weight:600;line-height:1.35;letter-spacing:-.01em;
+  text-wrap:balance;
+}
+.item .texto{font-size:16px;line-height:1.6;color:var(--ink-2);white-space:pre-wrap;overflow-wrap:anywhere}
+.item .meta{font-size:13.5px;color:var(--ink-3)}
+.item .meta .sep{opacity:.5;padding:0 3px}
+
+/* o item da associação não ganha caixa: ganha um fio verde curto acima do
+   rótulo. É o suficiente para dizer "isto é oficial" sem virar outra caixa. */
+.item.oficial{border-left:2px solid var(--accent);padding-left:16px}
+
+.acoes{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
 .bt{
-  padding:8px 13px;border-radius:99px;font-size:13.5px;font-weight:500;
-  border:1px solid var(--stroke);background:var(--card-2);color:var(--ink-2);
+  display:inline-flex;align-items:center;justify-content:center;min-height:40px;
+  padding:9px 15px;border-radius:8px;font-size:14.5px;font-weight:500;
+  border:1px solid var(--rule-forte);color:var(--ink-2);background:var(--surface);
 }
-.bt:hover{border-color:var(--stroke)}
-.bt.zap{background:var(--brand);border-color:var(--brand);color:#fff}
-.bt.on{background:var(--brand-dim);border-color:var(--brand);color:var(--brand-hi)}
-.bt.perigo{color:#d0453d;border-color:rgba(208,69,61,.35)}
+.bt:hover{border-color:var(--ink-3);color:var(--ink)}
+.bt.forte{background:var(--ink);border-color:var(--ink);color:var(--paper);font-weight:600}
+.bt.forte:hover{color:var(--paper);opacity:.88}
+.bt.feito{background:var(--accent-fundo);border-color:transparent;color:var(--accent)}
+.bt.perigo{color:var(--alerta);border-color:transparent;background:var(--alerta-fundo)}
+.bt[disabled]{cursor:default;opacity:1}
 
-.vazio{text-align:center;padding:56px 20px;color:var(--ink-3)}
-.vazio .icone{font-size:40px;display:block;margin-bottom:10px;opacity:.65}
-.secao{font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin:22px 2px 10px}
-
-/* ----------------------------------------------------------- botão novo --- */
-.novo{
-  position:fixed; left:50%; transform:translateX(-50%);
-  bottom:calc(20px + env(safe-area-inset-bottom)); z-index:40;
-  background:var(--brand); color:#fff; font-weight:600; font-size:15px;
-  padding:14px 26px; border-radius:99px; box-shadow:0 14px 30px -12px rgba(24,158,112,.75);
+.selo{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink-3);border:1px solid var(--rule-forte);padding:1px 6px;border-radius:4px;
+  line-height:1.5;
 }
 
-/* ----------------------------------------------------------------- ficha --- */
-.fundo{position:fixed;inset:0;z-index:50;background:rgba(8,18,14,.55);backdrop-filter:blur(3px);display:flex;align-items:flex-end;justify-content:center}
+/* ---------------------------------------------------------------- documento */
+.doc .doc-topo{display:flex;gap:14px;align-items:baseline}
+.doc .doc-topo h3{flex:1;min-width:0}
+.doc .doc-data{
+  font-family:var(--mono);font-size:13px;color:var(--ink-3);
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+}
+
+/* ------------------------------------------------------------------- seções */
+.secao{
+  font-family:var(--mono);font-size:11.5px;font-weight:500;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--ink-3);
+  padding:30px 0 10px;border-bottom:1px solid var(--rule-forte);
+}
+.secao:first-child{padding-top:20px}
+
+.vazio{padding:34px 0;color:var(--ink-3);font-size:15px;border-bottom:1px solid var(--rule)}
+.nota{padding:18px 0;color:var(--ink-3);font-size:13.5px}
+
+/* --------------------------------------------------------------- associação */
+.cabecalho{padding:24px 0 20px;border-bottom:1px solid var(--rule-forte)}
+.cabecalho h2{font-size:20px;font-weight:700;letter-spacing:-.02em;margin-bottom:8px}
+.cabecalho p{font-size:15.5px;color:var(--ink-2);max-width:46ch}
+.cabecalho .acoes{margin-top:16px}
+.dentro{
+  display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:9px 14px;
+  border-radius:8px;background:var(--accent-fundo);color:var(--accent);
+  font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;
+}
+
+/* --------------------------------------------------------------- ação nova */
+.publicar{
+  flex:none;display:flex;align-items:center;gap:7px;margin-bottom:9px;
+  background:var(--ink);color:var(--paper);font-size:14px;font-weight:600;
+  padding:0 15px;border-radius:99px;min-height:38px;
+}
+.publicar:hover{opacity:.85}
+
+/* -------------------------------------------------------------------- ficha */
+.fundo{position:fixed;inset:0;z-index:50;background:rgba(10,12,12,.5);display:flex;align-items:flex-end;justify-content:center}
 .ficha{
-  width:100%;max-width:560px;max-height:92vh;overflow-y:auto;background:var(--bg);
-  border-radius:var(--r-lg) var(--r-lg) 0 0;padding:18px 16px calc(22px + env(safe-area-inset-bottom));
-  border:1px solid var(--stroke);
+  width:100%;max-width:560px;max-height:92vh;overflow-y:auto;background:var(--paper);
+  border-radius:16px 16px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom));
 }
-@media (min-width:640px){
+@media (min-width:620px){
   .fundo{align-items:center}
-  .ficha{border-radius:var(--r-lg);max-height:88vh}
+  .ficha{border-radius:14px;max-height:88vh}
 }
-.ficha h2{font-size:18px;margin-bottom:14px}
-.campo{margin-bottom:13px}
-.campo label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-2);margin-bottom:5px}
+.ficha h2{font-size:19px;font-weight:700;letter-spacing:-.015em;margin-bottom:18px}
+.ficha .explica{font-size:15px;color:var(--ink-2);margin:-10px 0 20px}
+
+.campo{margin-bottom:18px}
+.campo label{
+  display:block;font-family:var(--mono);font-size:11.5px;font-weight:500;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--ink-3);margin-bottom:7px;
+}
 .campo input,.campo textarea,.campo select{
-  width:100%;padding:11px 12px;border-radius:var(--r-sm);
-  border:1px solid var(--stroke);background:var(--card);color:var(--ink);
+  width:100%;padding:12px 13px;border-radius:8px;font-size:16px;
+  border:1px solid var(--rule-forte);background:var(--surface);color:var(--ink);
 }
-.campo input:focus,.campo textarea:focus,.campo select:focus{outline:2px solid var(--brand);outline-offset:1px}
-.campo textarea{min-height:96px;resize:vertical}
-.campo .dica{font-size:11.5px;color:var(--ink-3);margin-top:4px}
-.tipos{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:7px}
-.tipos button{
-  padding:10px 6px;border-radius:var(--r-sm);border:1px solid var(--stroke);
-  background:var(--card);font-size:12.5px;font-weight:500;color:var(--ink-2);text-align:center;
-}
-.tipos button.on{border-color:var(--cor);background:color-mix(in srgb, var(--cor) 13%, transparent);color:var(--cor)}
-.tipos button .ic{display:block;font-size:19px;margin-bottom:3px}
-.rodape-ficha{display:flex;gap:9px;margin-top:18px}
-.rodape-ficha .bt{flex:1;text-align:center;padding:13px}
-.rodape-ficha .bt.ok{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
-.erro{color:#d0453d;font-size:13px;margin-top:10px}
+.campo textarea{min-height:104px;resize:vertical;line-height:1.55}
+.campo .dica{font-size:13px;color:var(--ink-3);margin-top:7px;line-height:1.5}
 
-/* ---------------------------------------------------------------- avisos --- */
-#toasts{position:fixed;left:0;right:0;bottom:calc(88px + env(safe-area-inset-bottom));z-index:60;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none}
-.toast{background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:99px;font-size:13.5px;box-shadow:var(--shadow)}
-
-/* ---------------------------------------------------------- associação --- */
-/* O canal oficial precisa se distinguir do mural à primeira vista: fundo
-   levemente tingido de verde e uma faixa cheia no lugar da barrinha fina. */
-.painel{
-  max-width:640px;margin:0 auto;background:var(--card);border:1px solid var(--stroke);
-  border-radius:var(--r);padding:16px;box-shadow:var(--shadow);
-  border-top:3px solid var(--brand);
+/* escolha de tipo: lista de opções, não grade de botões coloridos */
+.opcoes{display:flex;flex-wrap:wrap;gap:8px}
+.opcoes button{
+  padding:9px 14px;min-height:40px;border-radius:8px;font-size:14.5px;font-weight:500;
+  border:1px solid var(--rule-forte);background:var(--surface);color:var(--ink-2);
 }
-.painel h2{font-size:17px;margin-bottom:6px}
-.painel p{font-size:14px;color:var(--ink-2)}
-.painel .acoes{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:13px}
-.selo-dentro{font-size:12.5px;font-weight:600;color:var(--brand-hi);background:var(--brand-dim);padding:7px 12px;border-radius:99px}
+.opcoes button.on{background:var(--ink);border-color:var(--ink);color:var(--paper);font-weight:600}
 
-.aviso.oficial{
-  border-left:none;border-top:3px solid var(--brand);
-  background:linear-gradient(180deg, var(--brand-dim), transparent 90px), var(--card);
-}
-.aviso.oficial .tag{color:var(--brand-hi);background:var(--brand-dim)}
-.aviso.oficial.fixado{border-top-width:4px}
-.selo-fixado{font-size:11px;font-weight:600;color:var(--brand-hi);border:1px solid var(--brand);padding:3px 8px;border-radius:99px}
+.caixinha{display:flex;gap:12px;align-items:flex-start;padding:14px;margin-bottom:18px;border:1px solid var(--rule-forte);border-radius:8px;background:var(--surface);cursor:pointer}
+.caixinha input{width:20px;height:20px;flex:none;margin-top:2px;accent-color:var(--ink)}
+.caixinha span{font-size:15px;font-weight:600}
+.caixinha small{display:block;font-size:13px;font-weight:400;color:var(--ink-3);margin-top:4px;line-height:1.5}
 
-.bt.claro{background:var(--brand-dim);border-color:var(--brand);color:var(--brand-hi);font-weight:600}
+.rodape-ficha{display:flex;gap:10px;margin-top:24px}
+.rodape-ficha .bt{flex:1;min-height:48px}
+.erro{color:var(--alerta);font-size:14.5px;margin-top:14px}
 
-/* documento: linha de arquivo, não cartão de recado */
-.doc{
-  display:flex;gap:12px;align-items:flex-start;background:var(--card);
-  border:1px solid var(--stroke);border-radius:var(--r);padding:13px 14px;margin-bottom:9px;
-}
-.doc-ic{font-size:22px;line-height:1.2;flex:none}
-.doc-corpo{min-width:0;flex:1}
-.doc h3{font-size:15.5px;font-weight:600;line-height:1.3;margin-bottom:5px}
-.doc .meta{font-size:12.5px;color:var(--ink-3)}
-.doc .meta span{opacity:.5;padding:0 2px}
-.doc .cat{
-  opacity:1;padding:2px 8px;border-radius:99px;background:var(--bg-2);
-  border:1px solid var(--stroke-soft);font-size:11.5px;font-weight:600;color:var(--ink-2);
-}
-.doc .texto{font-size:13.5px;color:var(--ink-2);margin-top:7px}
-.doc .acoes{display:flex;gap:8px;margin-top:11px;flex-wrap:wrap;align-items:center}
-.sem-arquivo{font-size:12.5px;color:var(--ink-3);font-style:italic}
+/* ------------------------------------------------------------------- toasts */
+#toasts{position:fixed;left:0;right:0;bottom:calc(28px + env(safe-area-inset-bottom));z-index:60;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none}
+.toast{background:var(--ink);color:var(--paper);padding:11px 18px;border-radius:99px;font-size:14.5px;box-shadow:0 8px 24px -10px rgba(0,0,0,.5)}
 
-/* ------------------------------------------------------- campos extras --- */
-.ficha .explica{font-size:13.5px;color:var(--ink-2);margin-bottom:15px}
-.caixinha{
-  display:flex;gap:11px;align-items:flex-start;padding:12px;margin-bottom:13px;
-  border:1px solid var(--stroke);border-radius:var(--r-sm);background:var(--card);cursor:pointer;
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 }
-.caixinha input{width:19px;height:19px;flex:none;margin-top:1px;accent-color:var(--brand)}
-.caixinha span{font-size:14px;font-weight:500}
-.caixinha small{display:block;font-size:12px;font-weight:400;color:var(--ink-3);margin-top:3px}

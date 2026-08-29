@@ -2,6 +2,10 @@
    ui.js — telas do app do bairro
    Duas abas: o mural, onde qualquer vizinho publica, e a associação, onde só
    a diretoria publica e todo mundo lê.
+
+   O feed é uma lista, não uma pilha de cartões: itens uniformes separados por
+   um fio. O tipo do aviso é dito por escrito no rótulo, e só ocorrência ganha
+   cor — é o único caso em que a cor carrega informação de urgência.
    ========================================================================== */
 (function (global) {
   'use strict';
@@ -10,8 +14,14 @@
   var app = document.getElementById('app');
 
   var estado = { aba: 'mural', tipo: 'tudo', busca: '' };
-  var rascunho = null;      // ficha do mural aberta
+  var rascunho = null;         // ficha do mural aberta
   var rascunhoOficial = null;  // ficha da associação aberta
+
+  /* Traço de 1,5px, herdando a cor do texto — os únicos ícones do app. */
+  var ICONE = {
+    busca: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>',
+    mais: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>'
+  };
 
   function esc(s) {
     return String(s == null ? '' : s)
@@ -23,6 +33,12 @@
   function linkSeguro(url) {
     var u = String(url || '').trim();
     return /^https?:\/\//i.test(u) ? u : null;
+  }
+
+  var SEP = '<span class="sep" aria-hidden="true">/</span>';
+
+  function juntar(partes, sep) {
+    return partes.filter(Boolean).join(sep || '<span class="sep" aria-hidden="true">·</span>');
   }
 
   function toast(msg) {
@@ -37,19 +53,21 @@
   /* ------------------------------------------------------------------ casca */
   function montarShell() {
     app.innerHTML =
-      '<header class="topo">' +
+      '<header class="topo"><div class="interno">' +
         '<div class="marca">' +
-          '<img src="icons/icon-192.png" alt="">' +
-          '<div><b>Vizinhança</b><span>Bairro Jardim das Acácias</span></div>' +
-          '<div class="modo" id="modo"></div>' +
+          '<b>Vizinhança</b>' +
+          '<span class="lugar">Jardim das Acácias</span>' +
+          '<span class="modo" id="modo"></span>' +
         '</div>' +
-        '<nav class="abas" id="abas">' +
-          '<button data-aba="mural">Mural</button>' +
-          '<button data-aba="associacao">Associação</button>' +
-        '</nav>' +
-      '</header>' +
-      '<main id="conteudo"></main>' +
-      '<button class="novo" id="btNovo" hidden></button>';
+        '<div class="linha-abas">' +
+          '<nav class="abas" id="abas">' +
+            '<button data-aba="mural">Mural</button>' +
+            '<button data-aba="associacao">Associação</button>' +
+          '</nav>' +
+          '<button class="publicar" id="btNovo" hidden></button>' +
+        '</div>' +
+      '</div></header>' +
+      '<main id="conteudo"></main>';
 
     document.getElementById('abas').addEventListener('click', function (ev) {
       var b = ev.target.closest('button[data-aba]');
@@ -59,18 +77,17 @@
       window.scrollTo({ top: 0 });
     });
     document.getElementById('btNovo').addEventListener('click', function () {
-      if (estado.aba === 'associacao') abrirFichaOficial();
-      else abrirFicha();
+      if (estado.aba !== 'associacao') { abrirFicha(); return; }
+      // segunda tranca: publicar pela associação exige estar na diretoria,
+      // independente de o botão ter aparecido por engano
+      if (D.naAssociacao()) abrirFichaOficial();
     });
     document.getElementById('conteudo').addEventListener('click', aoClicar);
   }
 
   function pintarModo() {
     var el = document.getElementById('modo');
-    if (!el) return;
-    el.textContent = D.modo === 'compartilhado'
-      ? 'mural compartilhado'
-      : 'modo demonstração — fica só neste aparelho';
+    if (el) el.textContent = D.modo === 'compartilhado' ? 'compartilhado' : 'demonstração';
   }
 
   function pintarAbas() {
@@ -81,20 +98,17 @@
       b.className = ligada ? 'on' : '';
       b.setAttribute('aria-current', ligada ? 'page' : 'false');
     });
-    var bt = abas.querySelector('[data-aba="associacao"]');
-    bt.innerHTML = 'Associação' + (fixados ? ' <span class="bolinha">' + fixados + '</span>' : '');
+    abas.querySelector('[data-aba="associacao"]').innerHTML =
+      'Associação' + (fixados ? '<span class="contagem">' + fixados + '</span>' : '');
   }
 
   function pintarBotaoNovo() {
     var bt = document.getElementById('btNovo');
-    if (estado.aba === 'mural') {
-      bt.hidden = false;
-      bt.textContent = '+ Publicar aviso';
-    } else if (D.naAssociacao()) {
-      bt.hidden = false;
-      bt.textContent = '+ Publicar da associação';
-    } else {
-      bt.hidden = true;
+    var mostra = estado.aba === 'mural' || D.naAssociacao();
+    bt.hidden = !mostra;
+    if (mostra) {
+      bt.innerHTML = ICONE.mais + 'Publicar';
+      bt.setAttribute('aria-label', estado.aba === 'mural' ? 'Publicar aviso no mural' : 'Publicar pela associação');
     }
   }
 
@@ -109,7 +123,7 @@
     document.getElementById('conteudo').innerHTML =
       '<div class="barra">' +
         '<div class="busca">' +
-          '<span class="lupa">🔍</span>' +
+          '<span class="lupa">' + ICONE.busca + '</span>' +
           '<input id="busca" type="search" placeholder="Buscar aviso, rua ou pessoa" autocomplete="off">' +
         '</div>' +
         '<nav class="filtros" id="filtros"></nav>' +
@@ -120,75 +134,65 @@
     busca.value = estado.busca;
     busca.addEventListener('input', function (ev) {
       estado.busca = ev.target.value;
-      pintarChips(); pintarFeed();
+      pintarFeed();
     });
     document.getElementById('filtros').addEventListener('click', function (ev) {
-      var b = ev.target.closest('.chip');
+      var b = ev.target.closest('button[data-tipo]');
       if (!b) return;
       estado.tipo = b.dataset.tipo;
-      pintarChips(); pintarFeed();
+      pintarFiltros(); pintarFeed();
     });
-    pintarChips(); pintarFeed();
+    pintarFiltros(); pintarFeed();
   }
 
-  function pintarChips() {
-    var conta = D.contarPorTipo(estado.busca);
-    var html = '<button class="chip' + (estado.tipo === 'tudo' ? ' on' : '') + '" data-tipo="tudo">Tudo · ' + conta.tudo + '</button>';
+  function pintarFiltros() {
+    var html = '<button' + (estado.tipo === 'tudo' ? ' class="on"' : '') + ' data-tipo="tudo">Tudo</button>';
     D.ORDEM_TIPOS.forEach(function (t) {
-      var info = D.TIPOS[t];
-      html += '<button class="chip' + (estado.tipo === t ? ' on' : '') + '" data-tipo="' + t + '">' +
-        info.ic + ' ' + esc(info.plural) + ' · ' + conta[t] + '</button>';
+      html += '<button' + (estado.tipo === t ? ' class="on"' : '') + ' data-tipo="' + t + '">' +
+        esc(D.TIPOS[t].plural) + '</button>';
     });
     document.getElementById('filtros').innerHTML = html;
   }
 
-  function cartao(a) {
-    var info = D.TIPOS[a.tipo] || { nome: a.tipo, cor: 'var(--brand)' };
+  function itemMural(a) {
+    var info = D.TIPOS[a.tipo] || { nome: a.tipo };
+    var urgente = a.tipo === 'ocorrencia' && !a.resolvido;
     var zap = D.linkZap(a);
     var confirmei = D.jaConfirmei(a);
 
-    var meta = [];
-    if (a.rua) meta.push('📍 ' + esc(a.rua));
-    meta.push('👤 ' + esc(a.autor));
-    if (a.confirmacoes) meta.push('👍 ' + a.confirmacoes + (a.confirmacoes === 1 ? ' vizinho confirmou' : ' vizinhos confirmaram'));
+    var rotulo = '<div class="rotulo' + (urgente ? ' alerta' : '') + '">' +
+      (urgente ? '<span class="ponto"></span>' : '') +
+      esc(info.nome) +
+      (a.resolvido ? '<span class="selo">resolvido</span>' : '') +
+      '<time>' + esc(D.quando(a.criadoEm)) + '</time>' +
+    '</div>';
+
+    var meta = juntar([
+      a.rua ? esc(a.rua) : '',
+      esc(a.autor),
+      a.confirmacoes ? a.confirmacoes + (a.confirmacoes === 1 ? ' confirmou' : ' confirmaram') : ''
+    ]);
 
     var acoes = '';
-    if (zap) acoes += '<a class="bt zap" href="' + esc(zap) + '" target="_blank" rel="noopener">Chamar no WhatsApp</a>';
+    if (zap) acoes += '<a class="bt forte" href="' + esc(zap) + '" target="_blank" rel="noopener">WhatsApp</a>';
     if (!a.resolvido) {
       // numa ocorrência confirmar é "acontece comigo também"; no resto é recomendação
-      var rotulo = a.tipo === 'ocorrencia' ? 'Também estou vendo isso' : 'Achei útil';
-      acoes += '<button class="bt' + (confirmei ? ' on' : '') + '" data-acao="confirmar" data-id="' + a.id + '"' +
-        (confirmei ? ' disabled' : '') + '>' + (confirmei ? '✓ Você confirmou' : rotulo) + '</button>';
+      var rot = a.tipo === 'ocorrencia' ? 'Também estou vendo' : 'Achei útil';
+      acoes += '<button class="bt' + (confirmei ? ' feito' : '') + '" data-acao="confirmar" data-id="' + a.id + '"' +
+        (confirmei ? ' disabled' : '') + '>' + (confirmei ? 'Você confirmou' : rot) + '</button>';
     }
     if (D.meu(a)) {
       acoes += '<button class="bt" data-acao="resolver" data-id="' + a.id + '">' +
-        (a.resolvido ? 'Reabrir' : 'Marcar como resolvido') + '</button>';
-      acoes += '<button class="bt perigo" data-acao="remover" data-id="' + a.id + '">Apagar</button>';
+        (a.resolvido ? 'Reabrir' : 'Resolvido') + '</button>' +
+        '<button class="bt perigo" data-acao="remover" data-id="' + a.id + '">Apagar</button>';
     }
 
-    return '<article class="aviso' + (a.resolvido ? ' resolvido' : '') + '" style="--cor:' + info.cor + '">' +
-      '<div class="cab">' +
-        '<span class="tag">' + info.ic + ' ' + esc(info.nome) + '</span>' +
-        (a.resolvido ? '<span class="selo-resolvido">resolvido</span>' : '') +
-        '<span class="quando">' + esc(D.quando(a.criadoEm)) + '</span>' +
-      '</div>' +
+    return '<article class="item' + (a.resolvido ? ' resolvido' : '') + '">' +
+      rotulo +
       '<h3>' + esc(a.titulo) + '</h3>' +
       (a.texto ? '<p class="texto">' + esc(a.texto) + '</p>' : '') +
-      '<div class="meta">' + meta.join(' <span aria-hidden="true">·</span> ') + '</div>' +
+      '<div class="meta">' + meta + '</div>' +
       (acoes ? '<div class="acoes">' + acoes + '</div>' : '') +
-    '</article>';
-  }
-
-  /** Aviso fixado pela associação, mostrado no topo do mural. */
-  function faixaOficial(o) {
-    return '<article class="aviso oficial fixado">' +
-      '<div class="cab">' +
-        '<span class="tag">📢 Associação</span>' +
-        '<span class="quando">' + esc(D.quando(o.criadoEm)) + '</span>' +
-      '</div>' +
-      '<h3>' + esc(o.titulo) + '</h3>' +
-      (o.texto ? '<p class="texto">' + esc(o.texto) + '</p>' : '') +
-      '<div class="acoes"><button class="bt" data-acao="ver-associacao">Ver tudo da associação</button></div>' +
     '</article>';
   }
 
@@ -197,24 +201,22 @@
     var arquivados = D.listar({ tipo: estado.tipo, busca: estado.busca, arquivo: true }).length;
     var html = '';
 
-    // só mostra os fixados quando ninguém está filtrando o mural
+    // fixados da associação só aparecem quando ninguém está filtrando o mural
     if (estado.tipo === 'tudo' && !estado.busca) {
-      D.fixados().forEach(function (o) { html += faixaOficial(o); });
+      D.fixados().forEach(function (o) { html += itemOficial(o, true); });
     }
 
     if (!lista.length) {
-      html += '<div class="vazio"><span class="icone">🏘️</span>' +
+      html += '<div class="vazio">' +
         (estado.busca ? 'Nada encontrado para “' + esc(estado.busca) + '”.'
                       : 'Nenhum aviso por aqui ainda. Seja o primeiro a publicar.') +
         '</div>';
     } else {
-      lista.forEach(function (a) { html += cartao(a); });
+      lista.forEach(function (a) { html += itemMural(a); });
     }
 
     if (arquivados) {
-      html += '<div class="secao">Avisos vencidos</div>' +
-        '<div class="vazio" style="padding:18px">' + arquivados +
-        ' aviso(s) passaram do prazo e saíram do mural.</div>';
+      html += '<div class="nota">' + arquivados + ' aviso(s) passaram do prazo e saíram do mural.</div>';
     }
 
     document.getElementById('feed').innerHTML = html;
@@ -224,28 +226,27 @@
   function montarAssociacao() {
     var dentro = D.naAssociacao();
     var html = '<div class="feed">' +
-      '<section class="painel">' +
+      '<section class="cabecalho">' +
         '<h2>Associação de Moradores</h2>' +
-        '<p>Espaço oficial da diretoria. Aqui só a associação publica — os avisos, ' +
-        'informes e documentos ficam num lugar só, sem se perder no meio do mural.</p>' +
+        '<p>Espaço oficial da diretoria. Aqui só a associação publica — avisos, ' +
+        'informes e documentos ficam num lugar só, sem se perder no mural.</p>' +
         '<div class="acoes">' +
           (dentro
-            ? '<span class="selo-dentro">✓ Você está na área da diretoria</span>' +
+            ? '<span class="dentro">Área da diretoria</span>' +
               '<button class="bt" data-acao="sair-assoc">Sair</button>'
-            : '<button class="bt claro" data-acao="entrar-assoc">Sou da diretoria</button>') +
+            : '<button class="bt" data-acao="entrar-assoc">Sou da diretoria</button>') +
         '</div>' +
       '</section>';
 
     D.ORDEM_ESPECIES.forEach(function (e) {
       var info = D.ESPECIES[e];
       var itens = D.listarOficiais(e);
-      html += '<div class="secao">' + info.ic + ' ' + esc(info.plural) + '</div>';
+      html += '<div class="secao">' + esc(info.plural) + '</div>';
       if (!itens.length) {
-        html += '<div class="vazio" style="padding:26px 18px">Nada publicado em ' +
-          esc(info.plural.toLowerCase()) + ' por enquanto.</div>';
+        html += '<div class="vazio">Nada em ' + esc(info.plural.toLowerCase()) + ' por enquanto.</div>';
       } else {
         itens.forEach(function (o) {
-          html += e === 'documento' ? linhaDocumento(o) : cartaoOficial(o);
+          html += e === 'documento' ? itemDocumento(o) : itemOficial(o, false);
         });
       }
     });
@@ -257,48 +258,48 @@
     if (!D.naAssociacao()) return '';
     var html = '';
     if (o.especie === 'aviso') {
-      html += '<button class="bt' + (o.fixado ? ' on' : '') + '" data-acao="fixar" data-id="' + o.id + '">' +
-        (o.fixado ? '📌 Fixado no mural' : 'Fixar no mural') + '</button>';
+      html += '<button class="bt' + (o.fixado ? ' feito' : '') + '" data-acao="fixar" data-id="' + o.id + '">' +
+        (o.fixado ? 'Fixado no mural' : 'Fixar no mural') + '</button>';
     }
-    html += '<button class="bt perigo" data-acao="remover-oficial" data-id="' + o.id + '">Apagar</button>';
-    return html;
+    return html + '<button class="bt perigo" data-acao="remover-oficial" data-id="' + o.id + '">Apagar</button>';
   }
 
-  function cartaoOficial(o) {
+  /** noMural=true quando o item está aparecendo dentro do feed dos vizinhos. */
+  function itemOficial(o, noMural) {
     var info = D.ESPECIES[o.especie];
-    var acoes = acoesDiretoria(o);
-    return '<article class="aviso oficial">' +
-      '<div class="cab">' +
-        '<span class="tag">' + info.ic + ' ' + esc(info.nome) + '</span>' +
-        (o.fixado ? '<span class="selo-fixado">📌 no mural</span>' : '') +
-        '<span class="quando">' + esc(D.quando(o.criadoEm)) + '</span>' +
+    var acoes = noMural
+      ? '<button class="bt" data-acao="ver-associacao">Ver tudo da associação</button>'
+      : acoesDiretoria(o);
+
+    // dentro da aba da associação o prefixo "Associação" seria redundante
+    return '<article class="item oficial">' +
+      '<div class="rotulo assoc">' +
+        '<span class="ponto"></span>' +
+        (noMural ? 'Associação' + SEP + esc(info.nome) : esc(info.nome)) +
+        (o.fixado && !noMural ? '<span class="selo">no mural</span>' : '') +
+        '<time>' + esc(D.quando(o.criadoEm)) + '</time>' +
       '</div>' +
       '<h3>' + esc(o.titulo) + '</h3>' +
       (o.texto ? '<p class="texto">' + esc(o.texto) + '</p>' : '') +
-      '<div class="meta">✍️ ' + esc(o.assinatura) + '</div>' +
+      '<div class="meta">' + esc(o.assinatura) + '</div>' +
       (acoes ? '<div class="acoes">' + acoes + '</div>' : '') +
     '</article>';
   }
 
-  function linhaDocumento(o) {
+  function itemDocumento(o) {
     var href = linkSeguro(o.link);
-    var acoes = acoesDiretoria(o);
-    return '<article class="doc">' +
-      '<span class="doc-ic" aria-hidden="true">📄</span>' +
-      '<div class="doc-corpo">' +
+    var acoes = (href
+      ? '<a class="bt" href="' + esc(href) + '" target="_blank" rel="noopener">Abrir documento</a>'
+      : '<span class="selo">sem arquivo</span>') + acoesDiretoria(o);
+
+    return '<article class="item doc">' +
+      '<div class="doc-topo">' +
         '<h3>' + esc(o.titulo) + '</h3>' +
-        '<div class="meta">' +
-          (o.categoria ? '<span class="cat">' + esc(o.categoria) + '</span>' : '') +
-          (o.referencia ? ' <span aria-hidden="true">·</span> ' + esc(D.dataCurta(o.referencia)) : '') +
-        '</div>' +
-        (o.texto ? '<p class="texto">' + esc(o.texto) + '</p>' : '') +
-        '<div class="acoes">' +
-          (href
-            ? '<a class="bt claro" href="' + esc(href) + '" target="_blank" rel="noopener">Abrir documento</a>'
-            : '<span class="sem-arquivo">Sem arquivo anexado</span>') +
-          acoes +
-        '</div>' +
+        (o.referencia ? '<span class="doc-data">' + esc(D.dataCurta(o.referencia)) + '</span>' : '') +
       '</div>' +
+      (o.categoria ? '<div class="rotulo">' + esc(o.categoria) + '</div>' : '') +
+      (o.texto ? '<p class="texto">' + esc(o.texto) + '</p>' : '') +
+      '<div class="acoes">' + acoes + '</div>' +
     '</article>';
   }
 
@@ -339,14 +340,14 @@
     if (acao === 'confirmar') {
       D.confirmar(aviso).then(function () { pintarFeed(); toast('Confirmação registrada.'); });
     } else if (acao === 'resolver') {
-      D.alternarResolvido(aviso).then(function () { pintarChips(); pintarFeed(); });
+      D.alternarResolvido(aviso).then(function () { pintarFeed(); });
     } else if (acao === 'remover') {
       if (!confirm('Apagar este aviso?')) return;
-      D.remover(aviso).then(function () { pintarChips(); pintarFeed(); toast('Aviso apagado.'); });
+      D.remover(aviso).then(function () { pintarFeed(); toast('Aviso apagado.'); });
     }
   }
 
-  /* --------------------------------------------------------------- fichas */
+  /* ----------------------------------------------------------------- fichas */
   function fundoFicha() {
     var f = document.getElementById('fundo');
     if (!f) {
@@ -371,7 +372,14 @@
     el.hidden = false;
   }
 
-  /* ------------------------------------------------------ ficha: entrar */
+  function guardarRascunho(alvo, campos) {
+    campos.forEach(function (c) {
+      var el = document.getElementById('f-' + c);
+      if (el) alvo[c] = el.type === 'checkbox' ? el.checked : el.value;
+    });
+  }
+
+  /* --------------------------------------------------------- ficha: entrar */
   function abrirLogin() {
     fundoFicha().innerHTML =
       '<form class="ficha" id="ficha">' +
@@ -381,12 +389,12 @@
         '<div class="campo"><label for="f-codigo">Código da associação</label>' +
           '<input id="f-codigo" type="password" autocomplete="current-password" autocapitalize="none">' +
           (D.modo === 'compartilhado' ? '' :
-            '<div class="dica">No modo demonstração o código é <b>' + esc(D.CODIGO_DEMO) + '</b>.</div>') +
+            '<div class="dica">Na demonstração o código é <b>' + esc(D.CODIGO_DEMO) + '</b>.</div>') +
         '</div>' +
         '<div class="erro" id="f-erro" hidden></div>' +
         '<div class="rodape-ficha">' +
           '<button type="button" class="bt" id="f-cancelar">Cancelar</button>' +
-          '<button type="submit" class="bt ok">Entrar</button>' +
+          '<button type="submit" class="bt forte">Entrar</button>' +
         '</div>' +
       '</form>';
 
@@ -397,13 +405,19 @@
         if (!r.ok) { mostrarErro(r.erro); return; }
         fecharFicha();
         pintarConteudo();
-        toast('Entrou como diretoria da associação.');
+        toast('Entrou como diretoria.');
       });
     });
-    setTimeout(function () { document.getElementById('f-codigo').focus(); }, 60);
+    // a ficha pode ter fechado antes do foco chegar; então confere se ainda existe
+    setTimeout(function () {
+      var campo = document.getElementById('f-codigo');
+      if (campo) campo.focus();
+    }, 60);
   }
 
   /* -------------------------------------------------- ficha: aviso do mural */
+  var CAMPOS_MURAL = ['titulo', 'texto', 'rua', 'autor', 'contato'];
+
   function abrirFicha() {
     rascunho = {
       tipo: estado.tipo === 'tudo' ? 'ocorrencia' : estado.tipo,
@@ -416,23 +430,22 @@
 
   function pintarFicha() {
     var tipos = D.ORDEM_TIPOS.map(function (t) {
-      var i = D.TIPOS[t];
-      return '<button type="button" data-tipo="' + t + '" style="--cor:' + i.cor + '"' +
-        (rascunho.tipo === t ? ' class="on"' : '') + '><span class="ic">' + i.ic + '</span>' + esc(i.nome) + '</button>';
+      return '<button type="button" data-tipo="' + t + '"' +
+        (rascunho.tipo === t ? ' class="on"' : '') + '>' + esc(D.TIPOS[t].nome) + '</button>';
     }).join('');
 
     fundoFicha().innerHTML =
       '<form class="ficha" id="ficha">' +
         '<h2>Publicar aviso</h2>' +
-        '<div class="campo"><label>Tipo</label><div class="tipos" id="tipos">' + tipos + '</div></div>' +
+        '<div class="campo"><label>Tipo</label><div class="opcoes" id="tipos">' + tipos + '</div></div>' +
         '<div class="campo"><label for="f-titulo">Título</label>' +
-          '<input id="f-titulo" maxlength="120" placeholder="Ex.: Sem luz na Rua das Acácias" value="' + esc(rascunho.titulo) + '" required>' +
+          '<input id="f-titulo" maxlength="120" placeholder="Sem luz na Rua das Acácias" value="' + esc(rascunho.titulo) + '" required>' +
         '</div>' +
         '<div class="campo"><label for="f-texto">Detalhes</label>' +
           '<textarea id="f-texto" maxlength="1200" placeholder="O que aconteceu, desde quando, o que você já fez…">' + esc(rascunho.texto) + '</textarea>' +
         '</div>' +
         '<div class="campo"><label for="f-rua">Rua ou referência</label>' +
-          '<input id="f-rua" maxlength="80" placeholder="Ex.: Rua Ipê Amarelo, altura do 300" value="' + esc(rascunho.rua) + '">' +
+          '<input id="f-rua" maxlength="80" placeholder="Rua Ipê Amarelo, altura do 300" value="' + esc(rascunho.rua) + '">' +
         '</div>' +
         '<div class="campo"><label for="f-autor">Seu nome</label>' +
           '<input id="f-autor" maxlength="60" placeholder="Como os vizinhos te conhecem" value="' + esc(rascunho.autor) + '">' +
@@ -444,14 +457,14 @@
         '<div class="erro" id="f-erro" hidden></div>' +
         '<div class="rodape-ficha">' +
           '<button type="button" class="bt" id="f-cancelar">Cancelar</button>' +
-          '<button type="submit" class="bt ok">Publicar</button>' +
+          '<button type="submit" class="bt forte">Publicar</button>' +
         '</div>' +
       '</form>';
 
     document.getElementById('tipos').addEventListener('click', function (ev) {
       var b = ev.target.closest('button[data-tipo]');
       if (!b) return;
-      guardarRascunho(rascunho, ['titulo', 'texto', 'rua', 'autor', 'contato']);
+      guardarRascunho(rascunho, CAMPOS_MURAL);
       rascunho.tipo = b.dataset.tipo;
       pintarFicha();
     });
@@ -459,16 +472,9 @@
     document.getElementById('ficha').addEventListener('submit', enviarFicha);
   }
 
-  function guardarRascunho(alvo, campos) {
-    campos.forEach(function (c) {
-      var el = document.getElementById('f-' + c);
-      if (el) alvo[c] = el.type === 'checkbox' ? el.checked : el.value;
-    });
-  }
-
   function enviarFicha(ev) {
     ev.preventDefault();
-    guardarRascunho(rascunho, ['titulo', 'texto', 'rua', 'autor', 'contato']);
+    guardarRascunho(rascunho, CAMPOS_MURAL);
 
     if (!rascunho.titulo.trim()) { mostrarErro('Escreva um título para o aviso.'); return; }
     if (rascunho.contato && rascunho.contato.replace(/\D/g, '').length < 10) {
@@ -485,11 +491,11 @@
       estado.tipo = 'tudo'; estado.busca = '';
       pintarConteudo();
       window.scrollTo({ top: 0, behavior: 'smooth' });
-      toast(D.modo === 'compartilhado' ? 'Publicado no mural do bairro.' : 'Publicado (só neste aparelho).');
+      toast(D.modo === 'compartilhado' ? 'Publicado no mural.' : 'Publicado (só neste aparelho).');
     });
   }
 
-  /* ------------------------------------------- ficha: publicação da diretoria */
+  /* ------------------------------------------ ficha: publicação da diretoria */
   function abrirFichaOficial() {
     rascunhoOficial = {
       especie: 'aviso', titulo: '', texto: '',
@@ -500,7 +506,7 @@
     pintarFichaOficial();
   }
 
-  function camposDoRascunhoOficial() {
+  function camposOficiais() {
     return rascunhoOficial.especie === 'documento'
       ? ['titulo', 'texto', 'categoria', 'referencia', 'link', 'assinatura']
       : ['titulo', 'texto', 'fixado', 'assinatura'];
@@ -511,9 +517,8 @@
     var doc = r.especie === 'documento';
 
     var especies = D.ORDEM_ESPECIES.map(function (e) {
-      var i = D.ESPECIES[e];
-      return '<button type="button" data-especie="' + e + '" style="--cor:var(--brand)"' +
-        (r.especie === e ? ' class="on"' : '') + '><span class="ic">' + i.ic + '</span>' + esc(i.nome) + '</button>';
+      return '<button type="button" data-especie="' + e + '"' +
+        (r.especie === e ? ' class="on"' : '') + '>' + esc(D.ESPECIES[e].nome) + '</button>';
     }).join('');
 
     var categorias = D.CATEGORIAS_DOC.map(function (c) {
@@ -523,10 +528,10 @@
     fundoFicha().innerHTML =
       '<form class="ficha" id="ficha">' +
         '<h2>Publicar pela associação</h2>' +
-        '<div class="campo"><label>O que é</label><div class="tipos" id="especies">' + especies + '</div></div>' +
+        '<div class="campo"><label>O que é</label><div class="opcoes" id="especies">' + especies + '</div></div>' +
         '<div class="campo"><label for="f-titulo">Título</label>' +
           '<input id="f-titulo" maxlength="140" value="' + esc(r.titulo) + '" required placeholder="' +
-          (doc ? 'Ex.: Ata da assembleia de 14/09/2026' : 'Ex.: Assembleia geral — 14/09, 9h') + '">' +
+          (doc ? 'Ata da assembleia de 14/09/2026' : 'Assembleia geral — 14/09, 9h') + '">' +
         '</div>' +
 
         (doc
@@ -543,7 +548,7 @@
               '<textarea id="f-texto" maxlength="600" placeholder="Uma linha dizendo o que tem dentro.">' + esc(r.texto) + '</textarea></div>'
 
           : '<div class="campo"><label for="f-texto">Texto</label>' +
-              '<textarea id="f-texto" maxlength="4000" style="min-height:150px" placeholder="Escreva como se estivesse falando com o vizinho: o que é, quando, onde, o que ele precisa fazer.">' + esc(r.texto) + '</textarea></div>' +
+              '<textarea id="f-texto" maxlength="4000" style="min-height:160px" placeholder="Escreva como se estivesse falando com o vizinho: o que é, quando, onde, o que ele precisa fazer.">' + esc(r.texto) + '</textarea></div>' +
             (r.especie === 'aviso'
               ? '<label class="caixinha"><input type="checkbox" id="f-fixado"' + (r.fixado ? ' checked' : '') + '>' +
                 '<span>Fixar no topo do mural<small>Aparece também para quem só abre o mural. Use no que todo mundo precisa ver.</small></span></label>'
@@ -556,14 +561,14 @@
         '<div class="erro" id="f-erro" hidden></div>' +
         '<div class="rodape-ficha">' +
           '<button type="button" class="bt" id="f-cancelar">Cancelar</button>' +
-          '<button type="submit" class="bt ok">Publicar</button>' +
+          '<button type="submit" class="bt forte">Publicar</button>' +
         '</div>' +
       '</form>';
 
     document.getElementById('especies').addEventListener('click', function (ev) {
       var b = ev.target.closest('button[data-especie]');
       if (!b) return;
-      guardarRascunho(r, camposDoRascunhoOficial());
+      guardarRascunho(r, camposOficiais());
       r.especie = b.dataset.especie;
       pintarFichaOficial();
     });
@@ -574,7 +579,7 @@
   function enviarFichaOficial(ev) {
     ev.preventDefault();
     var r = rascunhoOficial;
-    guardarRascunho(r, camposDoRascunhoOficial());
+    guardarRascunho(r, camposOficiais());
 
     if (!r.titulo.trim()) { mostrarErro('Escreva um título.'); return; }
     if (r.especie !== 'documento' && !r.texto.trim()) {
