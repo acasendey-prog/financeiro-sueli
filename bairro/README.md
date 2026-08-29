@@ -6,9 +6,15 @@ de graça na Netlify e instalável na tela inicial do celular.
 
 Fica em `/bairro/` do mesmo site — não mexe em nada do app financeiro.
 
-**O app é fechado: sem conta, não se vê nada.** O morador se cadastra com
-nome, celular, endereço e e-mail, confirma o e-mail por um link e entra com
-e-mail e senha. A sessão dura 90 dias, para não pedir senha toda semana.
+**A conta é opcional.** Ninguém precisa se cadastrar para ler o mural nem para
+publicar. Quem cria uma conta ganha o aviso já assinado, o WhatsApp preenchido
+e a rua sugerida; quem não cria digita nome e telefone, que o aparelho lembra
+para a próxima vez.
+
+Para fechar o app — sem conta, nem a primeira tela abre — troque
+`EXIGIR_CONTA` para `true` no topo de `assets/ui.js`. Todo o resto (cadastro,
+confirmação por e-mail, senha, sessão, fila de liberação) já está pronto para
+isso.
 
 > **Dados pessoais.** Nome, celular e endereço juntos identificam a pessoa e
 > onde ela mora. Isso é tratamento de dado pessoal sob a LGPD e a associação
@@ -50,7 +56,7 @@ São dois espaços, com regras de escrita diferentes:
   estados em roda. Sem escolha, segue o aparelho; com escolha, ela vale acima
   do aparelho e sobrevive ao recarregar
 
-### Conta do morador
+### Conta do morador (opcional)
 
 - **Cadastro** com nome completo, e-mail, celular, rua, número e complemento
 - **Confirmação por e-mail**: o cadastro só vale depois de abrir o link. O
@@ -64,8 +70,8 @@ São dois espaços, com regras de escrita diferentes:
   liberação ligada, a diretoria vê a fila de cadastros na aba da associação,
   com endereço e telefone, e libera ou recusa
 - A conta alimenta o resto: o aviso já vai assinado com o nome, o WhatsApp vem
-  do cadastro e a rua vem preenchida. O formulário de aviso não pergunta mais
-  nada disso
+  do cadastro e a rua vem preenchida — esses três campos somem do formulário.
+  Sem conta, o formulário pergunta e o aparelho lembra
 
 ### Associação
 

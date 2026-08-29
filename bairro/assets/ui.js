@@ -14,6 +14,11 @@
   var C = global.Contas;
   var app = document.getElementById('app');
 
+  /* Conta é opcional. Ninguém precisa se cadastrar para ler nem para publicar
+     no mural — quem cria uma ganha o aviso já assinado e os campos preenchidos.
+     Virar isto para true fecha o app: sem conta, nem a primeira tela abre. */
+  var EXIGIR_CONTA = false;
+
   var estado = { aba: 'mural', tipo: 'tudo', busca: '' };
   var entrada = { modo: 'entrar', dados: {} };   // tela de entrada
   var rascunho = null;         // ficha do mural aberta
@@ -73,8 +78,10 @@
             '<div><b>Vizinhança</b><span class="lugar">Jardim das Acácias</span></div>' +
             '<button class="tema" id="btTema"></button>' +
           '</div>' +
-          '<p class="entrada-texto">O mural é só para quem mora no bairro. ' +
-            'Entre com a sua conta ou crie uma.</p>' +
+          '<p class="entrada-texto">' + (EXIGIR_CONTA
+            ? 'O mural é só para quem mora no bairro. Entre com a sua conta ou crie uma.'
+            : 'Com conta, seus avisos já saem assinados e você não digita nome e ' +
+              'telefone toda vez. Dá para usar o mural sem ela.') + '</p>' +
 
           '<nav class="abas" id="abasEntrada">' +
             '<button data-modo="entrar"' + (criar ? '' : ' class="on"') + '>Entrar</button>' +
@@ -87,6 +94,8 @@
             '<button type="submit" class="bt forte largo">' +
               (criar ? 'Criar minha conta' : 'Entrar') + '</button>' +
           '</form>' +
+          (EXIGIR_CONTA ? '' :
+            '<button class="bt largo" id="btPular">Ir para o mural sem conta</button>') +
 
           (C.erroServidor
             ? '<p class="entrada-nota"><b>' + esc(C.erroServidor) + '</b> Enquanto isso, ' +
@@ -100,6 +109,8 @@
 
     pintarTema();
     document.getElementById('btTema').addEventListener('click', trocarTema);
+    var pular = document.getElementById('btPular');
+    if (pular) pular.addEventListener('click', abrirApp);
     document.getElementById('abasEntrada').addEventListener('click', function (ev) {
       var b = ev.target.closest('button[data-modo]');
       if (!b || b.dataset.modo === entrada.modo) return;
@@ -196,11 +207,14 @@
           : '<p class="entrada-texto">Sua conta foi criada, mas o envio de e-mail ainda não está ' +
             'configurado neste site. Peça o link de confirmação a quem administra o app.</p>') +
         '<button class="bt largo" id="btVoltar">Voltar para a entrada</button>' +
+        (EXIGIR_CONTA ? '' : '<button class="bt largo" id="btPular">Ir para o mural</button>') +
       '</div></div>';
     document.getElementById('btVoltar').addEventListener('click', function () {
       entrada.modo = 'entrar';
       montarEntrada();
     });
+    var pular = document.getElementById('btPular');
+    if (pular) pular.addEventListener('click', abrirApp);
   }
 
   /* ------------------------------------------------------------------ casca */
@@ -211,7 +225,7 @@
           '<b>Vizinhança</b>' +
           '<span class="lugar">Jardim das Acácias</span>' +
           '<button class="tema" id="btTema"></button>' +
-          '<button class="conta" id="btConta" aria-label="Sua conta"></button>' +
+          '<button id="btConta"></button>' +
         '</div>' +
         '<div class="linha-abas">' +
           '<nav class="abas" id="abas">' +
@@ -238,8 +252,21 @@
     });
     document.getElementById('conteudo').addEventListener('click', aoClicar);
     document.getElementById('btTema').addEventListener('click', trocarTema);
-    document.getElementById('btConta').addEventListener('click', abrirConta);
-    document.getElementById('btConta').textContent = C.inicial();
+    document.getElementById('btConta').addEventListener('click', function () {
+      if (C.autenticado()) { abrirConta(); return; }
+      entrada.modo = 'entrar';
+      montarEntrada();
+    });
+    pintarConta();
+  }
+
+  function pintarConta() {
+    var bt = document.getElementById('btConta');
+    if (!bt) return;
+    var dentro = C.autenticado();
+    bt.className = dentro ? 'conta' : 'conta-vazia';
+    bt.textContent = dentro ? C.inicial() : 'Entrar';
+    bt.setAttribute('aria-label', dentro ? 'Sua conta' : 'Entrar ou criar conta');
   }
 
   function trocarTema() {
@@ -280,7 +307,8 @@
       fecharFicha();
       entrada.modo = 'entrar';
       entrada.dados = {};
-      montarEntrada();
+      if (EXIGIR_CONTA) montarEntrada();
+      else { abrirApp(); toast('Você saiu da conta.'); }
     });
   }
 
@@ -696,18 +724,26 @@
   }
 
   /* -------------------------------------------------- ficha: aviso do mural */
-  var CAMPOS_MURAL = ['titulo', 'texto', 'rua'];
+  /* Com conta, nome e telefone já vêm dela e somem do formulário. Sem conta,
+     o formulário pergunta — e guarda no aparelho, para não perguntar de novo
+     no próximo aviso. */
+  function camposMural() {
+    return C.autenticado()
+      ? ['titulo', 'texto', 'rua']
+      : ['titulo', 'texto', 'rua', 'autor', 'contato'];
+  }
 
   function abrirFicha() {
     var p = C.perfil || {};
     var e = p.endereco || {};
+    // a rua da pessoa é o palpite certo na maioria dos avisos
+    var ruaConta = e.rua ? e.rua + (e.numero ? ', ' + e.numero : '') : '';
     rascunho = {
       tipo: estado.tipo === 'tudo' ? 'ocorrencia' : estado.tipo,
       titulo: '', texto: '',
-      // a rua da pessoa é o palpite certo na maioria dos avisos
-      rua: e.rua ? e.rua + (e.numero ? ', ' + e.numero : '') : '',
-      autor: p.nome || 'Vizinho',
-      contato: p.celular || ''
+      rua: ruaConta || D.ler('bairro.rua') || '',
+      autor: p.nome || D.ler('bairro.nome') || '',
+      contato: p.celular || D.ler('bairro.zap') || ''
     };
     pintarFicha();
   }
@@ -731,8 +767,16 @@
         '<div class="campo"><label for="f-rua">Rua ou referência</label>' +
           '<input id="f-rua" maxlength="80" placeholder="Rua Ipê Amarelo, altura do 300" value="' + esc(rascunho.rua) + '">' +
         '</div>' +
-        '<p class="entrada-nota">Vai assinado como <b>' + esc(rascunho.autor) + '</b>' +
-          (rascunho.contato ? ', e os vizinhos poderão te chamar no WhatsApp.' : '.') + '</p>' +
+        (C.autenticado()
+          ? '<p class="entrada-nota">Vai assinado como <b>' + esc(rascunho.autor) + '</b>' +
+            (rascunho.contato ? ', e os vizinhos poderão te chamar no WhatsApp.' : '.') + '</p>'
+          : '<div class="campo"><label for="f-autor">Seu nome</label>' +
+              '<input id="f-autor" maxlength="60" placeholder="Como os vizinhos te conhecem" value="' + esc(rascunho.autor) + '">' +
+            '</div>' +
+            '<div class="campo"><label for="f-contato">WhatsApp (opcional)</label>' +
+              '<input id="f-contato" inputmode="numeric" maxlength="15" placeholder="11999998888" value="' + esc(rascunho.contato) + '">' +
+              '<div class="dica">Só com DDD e números. Fica visível para quem abrir o aviso.</div>' +
+            '</div>') +
         '<div class="erro" id="f-erro" hidden></div>' +
         '<div class="rodape-ficha">' +
           '<button type="button" class="bt" id="f-cancelar">Cancelar</button>' +
@@ -743,7 +787,7 @@
     document.getElementById('tipos').addEventListener('click', function (ev) {
       var b = ev.target.closest('button[data-tipo]');
       if (!b) return;
-      guardarRascunho(rascunho, CAMPOS_MURAL);
+      guardarRascunho(rascunho, camposMural());
       rascunho.tipo = b.dataset.tipo;
       pintarFicha();
     });
@@ -753,9 +797,20 @@
 
   function enviarFicha(ev) {
     ev.preventDefault();
-    guardarRascunho(rascunho, CAMPOS_MURAL);
+    guardarRascunho(rascunho, camposMural());
 
     if (!rascunho.titulo.trim()) { mostrarErro('Escreva um título para o aviso.'); return; }
+    if (rascunho.contato && rascunho.contato.replace(/\D/g, '').length < 10) {
+      mostrarErro('O WhatsApp precisa do DDD — ex.: 11999998888.');
+      return;
+    }
+
+    // sem conta, o aparelho lembra os dados para o próximo aviso
+    if (!C.autenticado()) {
+      D.guardar('bairro.nome', rascunho.autor);
+      D.guardar('bairro.zap', rascunho.contato);
+    }
+    D.guardar('bairro.rua', rascunho.rua);
 
     D.publicar(rascunho).then(function () {
       fecharFicha();
@@ -887,7 +942,7 @@
     C.carregar();
     // verificar() também descobre se há backend, então decide o modo dos dois
     C.verificar().then(function () {
-      if (C.autenticado()) abrirApp();
+      if (C.autenticado() || !EXIGIR_CONTA) abrirApp();
       else montarEntrada();
     });
   }

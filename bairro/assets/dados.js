@@ -316,9 +316,9 @@
     alternarInscricao: function (a) {
       var eu = aparelho();
       var dentro = this.estouInscrito(a);
-      // o nome vem da conta: desde que há cadastro, ninguém assina lista anônimo
+      // nome da conta quando existe; senão, o último que a pessoa usou
       var conta = global.Contas && global.Contas.perfil;
-      var nome = String((conta && conta.nome) || 'Vizinho').trim().slice(0, 60);
+      var nome = String((conta && conta.nome) || ler('bairro.nome') || 'Vizinho').trim().slice(0, 60);
 
       a.inscritos = dentro
         ? this.inscritos(a).filter(function (i) { return i.ap !== eu; })
