@@ -300,4 +300,87 @@ svg .lbl-halo{font-size:10px;font-family:var(--mono);font-weight:600;
   .burger{display:inline-flex !important}
 }
 .burger{display:none}
-@media print{.side,.topbar .btn,.burger{display:none}body{background:#fff;color:#000}}
+
+/* ============================================================================
+   IMPRESSÃO / SALVAR EM PDF
+
+   O sistema é escuro por natureza. Sem tratamento, imprimir gerava uma
+   "foto da tela": texto claro quase invisível no papel, cabeçalhos de tabela
+   como tarjas escuras, sombras borradas e — o pior — tabelas CORTADAS, porque
+   .tw é uma caixa com rolagem e a impressora só via a parte visível (o fluxo
+   de caixa de 25 meses saía com ~10 linhas).
+
+   Aqui o app vira documento A4: fundo branco, tinta escura, tabelas inteiras,
+   cabeçalho repetido a cada página e sem quebra no meio de uma linha.
+   ========================================================================== */
+@media print{
+  @page{ size:A4; margin:12mm 10mm; }
+
+  /* inverte a paleta: tudo que usa as variáveis já sai legível no papel */
+  :root{
+    color-scheme: light;
+    --ink:#111418; --ink-2:#3a4048; --ink-3:#5b626c;
+    --stroke:#c9ccd2; --stroke-soft:#e1e3e8; --stroke-hard:#9aa0aa;
+    --surface-1:transparent; --surface-2:transparent; --surface-3:transparent;
+    --bg-base:#fff; --bg-deep:#fff; --bg-lift:#fff;
+    --shadow:none;
+  }
+
+  html,body{background:#fff !important;color:#111418 !important}
+
+  /* fora do papel: navegação, botões, tooltips, modais */
+  .side,.burger,.seg,.actions,.iconbtn,.tip,.modal,.ovl,#toasts,.toast,
+  .topbar .btn,.side-foot{display:none !important}
+
+  /* o grid de 2 colunas deixava 242px de margem morta em toda página */
+  .shell{display:block !important}
+  .main{padding:0 !important;min-width:0}
+
+  .topbar{
+    position:static !important;background:none !important;backdrop-filter:none !important;
+    padding:0 0 8px;margin-bottom:12px;border-bottom:1.5px solid var(--stroke-hard);
+  }
+  .topbar h1{font-size:17px}
+
+  /* o mês de referência é informação, não controle: vira texto */
+  .monthbar select{
+    -webkit-appearance:none;appearance:none;
+    border:none !important;background:none !important;padding:0 !important;
+    color:#111418 !important;font-weight:700;font-size:14px;min-width:0;
+  }
+
+  .card{
+    background:#fff !important;border:1px solid var(--stroke) !important;
+    box-shadow:none !important;border-radius:6px;padding:12px;
+    overflow:visible !important;
+    break-inside:avoid;page-break-inside:avoid;
+  }
+  .card::after{display:none !important}
+  .card > h3{color:#3a4048 !important}
+
+  /* a correção que mais importa: tabela inteira, não só a parte visível */
+  .tw{max-height:none !important;overflow:visible !important;border:none !important}
+  table{font-size:10.4px}
+  thead{display:table-header-group}          /* cabeçalho repete a cada página */
+  tr{break-inside:avoid;page-break-inside:avoid}
+  th{
+    position:static !important;backdrop-filter:none !important;
+    background:#f1f2f4 !important;color:#3a4048 !important;
+    border-bottom:1px solid var(--stroke-hard) !important;
+  }
+  td{border-bottom:1px solid var(--stroke-soft) !important}
+  tbody tr:hover td{background:none !important}
+  tfoot td{background:#f1f2f4 !important;border-top:1px solid var(--stroke-hard) !important}
+
+  .tag{background:#fff !important;border:1px solid var(--stroke-hard) !important;color:#22262c !important}
+  .alert{background:#fff !important;border:1px solid var(--stroke-hard) !important;color:#22262c !important}
+  .bar-track{background:#e6e8ec !important}
+
+  /* gráficos: o halo dos rótulos era grafite (some no papel) */
+  svg{max-width:100% !important}
+  svg .lbl-halo{stroke:#fff !important}
+  .leg{color:#3a4048 !important}
+
+  .grid,.g-2,.g-3,.g-kpi{gap:10px}
+  .kpi{break-inside:avoid;page-break-inside:avoid}
+}
